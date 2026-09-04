@@ -1,6 +1,6 @@
 """The ceremonies: plan, triage, review, retro.
 
-Mutation proof: see docs/MUTATION.md.
+Mutation proof (docs/MUTATION.md): M11 (retro ignores the dates) turned test_retro_reads_the_journal_inside_the_dates red.
 """
 import os
 import unittest

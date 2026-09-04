@@ -4,7 +4,7 @@ The canary reports the health of the search index. A canary that sings when noth
 is wrong trains the reader to skip it, so the quiet cases are tested as hard as the
 loud ones. No container is needed: the suite serves its own /state.
 
-Mutation proof: see docs/MUTATION.md.
+Mutation proof (docs/MUTATION.md): M07 (never-synced as warning) 1 red; M08 (Indexed line without header) 0 red until the fixture got a total line, then 1 red.
 """
 import importlib.util
 import json
@@ -157,10 +157,16 @@ def load_agent():
 class AgentParserTest(unittest.TestCase):
     def test_parse_indexed_reads_per_collection_lines(self):
         agent = load_agent()
+        # The last line is a total with no collection header. A parser that reads an
+        # `Indexed:` line without its header records it under no name. Mutation M08
+        # (drop the `current` guard) stayed green until this line existed.
         text = ("[1/3] repo-docs (**/*.md)\nScanning...\nIndexed: 2 new, 1 updated, 548 unchanged, 0 removed\n"
-                "[2/3] repo-code (**/*.py)\nerror: ENOENT\n[3/3] memory (**/*.md)\r\nIndexed: 0 new, 0 updated, 65 unchanged, 1 removed\n")
+                "[2/3] repo-code (**/*.py)\nerror: ENOENT\n[3/3] memory (**/*.md)\r\nIndexed: 0 new, 0 updated, 65 unchanged, 1 removed\n"
+                "Indexed: 2 new, 1 updated, 613 unchanged, 1 removed\n")
         out = agent.parse_indexed(text, at="2026-09-04T00:00:00+00:00")
+        self.assertNotIn(None, out)
         self.assertEqual(sorted(out), ["memory", "repo-docs"])
+        self.assertEqual(out["memory"]["unchanged"], 65)  # not the total of 613
         self.assertEqual(out["repo-docs"]["added"], 2)
         self.assertEqual(out["memory"]["removed"], 1)
         self.assertNotIn("repo-code", out)  # no Indexed line: the alarm

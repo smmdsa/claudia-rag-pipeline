@@ -1,6 +1,6 @@
 """Front matter reader and writer.
 
-Mutation proof: see docs/MUTATION.md.
+Mutation proof (docs/MUTATION.md): M13 dropped the list items and turned 5 tests red, 2 of them here.
 """
 import unittest
 

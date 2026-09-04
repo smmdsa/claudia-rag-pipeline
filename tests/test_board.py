@@ -1,6 +1,6 @@
 """The board: scan, next, moves, verdicts, check, new.
 
-Mutation proof: see docs/MUTATION.md.
+Mutation proof (docs/MUTATION.md): M01 (no verdict needed) 2 red, M02 (blockers ignored) 1 red, M15 (any work size) 1 red.
 """
 import os
 import unittest

@@ -1,6 +1,6 @@
 """The hooks, fed with the documented payloads, with no Claude Code.
 
-Mutation proof: see docs/MUTATION.md.
+Mutation proof (docs/MUTATION.md): M06 (state folder not recognised) turned test_pre_write_denies_new_file_in_state_folder red.
 """
 import io
 import json

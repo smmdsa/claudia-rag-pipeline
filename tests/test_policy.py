@@ -4,7 +4,7 @@
 - No executable file contains the WSL wrapper string that design law 6 forbids.
 - No rendered template keeps a `{{...}}` placeholder, except the task molds.
 
-Mutation proof: see docs/MUTATION.md.
+Mutation proof (docs/MUTATION.md): measured on the files. The WSL guard turned red for real once, on its own docstring.
 """
 import ast
 import os

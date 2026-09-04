@@ -1,6 +1,6 @@
 """Port checks and the derived environment file.
 
-Mutation proof: see docs/MUTATION.md.
+Mutation proof (docs/MUTATION.md): M10 (every port free) turned 2 tests red.
 """
 import os
 import socket

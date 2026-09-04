@@ -1,6 +1,6 @@
 """The board page: the SQLite cache, the static page, the server.
 
-Mutation proof: see docs/MUTATION.md.
+Mutation proof (docs/MUTATION.md): M14 (unmeasured age stored as 0) 1 red; M04 (days off by one) 1 red here.
 """
 import json
 import os

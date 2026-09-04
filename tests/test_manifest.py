@@ -1,6 +1,6 @@
 """The manifest and the integrity gate: init, doctor, adopt, restore.
 
-Mutation proof: see docs/MUTATION.md.
+Mutation proof (docs/MUTATION.md): M03 (no checksum compare) 2 red, M12 (init overwrites) 2 red.
 """
 import json
 import os

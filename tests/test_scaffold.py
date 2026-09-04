@@ -1,6 +1,6 @@
 """Upgrade, uninstall, profile, generated skills.
 
-Mutation proof: see docs/MUTATION.md.
+Mutation proof (docs/MUTATION.md): M12 (init overwrites) turned test_upgrade_rewrites_unchanged_and_keeps_edited red.
 """
 import os
 import unittest

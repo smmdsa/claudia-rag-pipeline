@@ -1,6 +1,6 @@
 """The session pipeline: open, draft, close, the front board.
 
-Mutation proof: see docs/MUTATION.md.
+Mutation proof (docs/MUTATION.md): M09 (front numbers from 0) turned test_front_rows_parse_and_number_per_brief red.
 """
 import os
 import unittest
@@ -31,6 +31,12 @@ class SessionTest(unittest.TestCase):
                    "| The exporter | ana | active | 2026-09-01 (abc) | ship it |\n| The login | bo | blocked | 2026-08-01 | decide |\n")
         rows = session.front_rows(self.root)
         self.assertEqual([r["front"] for r in rows], ["The exporter", "The login"])
+        # the seeded file has a second table under "## Archive": its header is not a front
+        self.assertEqual(session.front_rows(self.root), rows)
+        write_text(os.path.join(self.root, "docs", "ACTIVITY.md"),
+                   read_text(os.path.join(self.root, "docs", "ACTIVITY.md")) +
+                   "\n## Archive\n\n| front | owner | state | touched | outcome |\n|---|---|---|---|---|\n| Old one | ana | closed | 2026-07-01 | shipped |\n")
+        self.assertEqual([r["front"] for r in session.front_rows(self.root)], ["The exporter", "The login"])
         self.assertEqual(rows[0]["touched"].isoformat(), "2026-09-01")
         b = session.open_brief(self.root, with_rag=False)
         self.assertEqual([f["n"] for f in b["fronts"]], [1, 2])

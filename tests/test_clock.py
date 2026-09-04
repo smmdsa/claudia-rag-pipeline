@@ -1,6 +1,6 @@
 """The sprint clock: days remain, overdue sprints, no stored number.
 
-Mutation proof: see docs/MUTATION.md.
+Mutation proof (docs/MUTATION.md): M04 (days off by one) turned 4 tests red, 2 of them here.
 """
 import os
 import unittest

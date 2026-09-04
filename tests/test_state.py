@@ -1,6 +1,6 @@
 """Targets, computed state, observations, escalations.
 
-Mutation proof: see docs/MUTATION.md.
+Mutation proof (docs/MUTATION.md): M05 (observe twice a day) turned test_observe_once_per_stock_per_day red.
 """
 import json
 import os
