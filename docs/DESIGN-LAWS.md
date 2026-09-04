@@ -83,9 +83,22 @@ USER, never the agent."* And `sprints.md` on `priority`: *"on 2026-09-04 the boa
 and the user disagreed, and the board was wrong."* The tool ranked by epic number
 because that was the only order it knew.
 
+**The account, from source B `sprints/sprints.md`.** On 2026-09-04 the user closed a
+session and named the localization epic (`EP-31`) as what opens the next one. `next`
+answered `TASK-2801`, because 28 < 31 and the epic number was the only order the tool
+knew. The backlog then carried a sentence: *"the board will tell you EP-28, he said
+EP-31"*. That sentence is a second list, and two lists diverge. Source B added
+`priority: 1` as a field, set *"from what he SAID, in his words, and never from what
+the agent thinks matters"*. The rule lived in prose. The tool accepted any value from
+anyone.
+
 **In the code.** `target set` needs `--by` and `--why`. The pre-write hook denies a
 hand edit of `targets.json`. `done` on an eye task needs `--verdict`. `escalate`
-writes the observation and leaves the decision empty.
+writes the observation and leaves the decision empty. `priority` follows the same
+shape since 0.1.0 (decision of the user on 2026-09-04): `harness priority <id> --by
+user --why "..."` is the only writer and records the author, the date, and the words;
+`check` exits 1 on a priority with no author, no date, or the agent as author; the
+pre-write hook denies a `priority` line written by hand into a task file.
 
 ## 9. A green test can guard a bug.
 

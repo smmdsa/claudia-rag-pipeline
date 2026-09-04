@@ -122,6 +122,30 @@ counted.
 **Change.** `work/backlog/` holds task files with the same front matter as sprint tasks.
 `ceremony plan` counts them and sums their sizes. Narrative goes to `work/ROADMAP.md`.
 
+## P17. `priority` carries its provenance, and the tool holds the rule — implemented
+
+**Gap.** The first report of 2026-09-04 named it: the rules forbid the agent to set
+`priority`, and the tool accepted a hand-written `priority: 1` from anyone. Source B,
+`sprints/sprints.md`, records the day the board ranked by epic number and named the
+wrong epic. The user chose enforcement.
+
+**Where the provenance lives, and why.** In the task front matter: `priority`,
+`priority-by`, `priority-date`, `priority-why`. Not in `.harness/targets.json`. Three
+reasons. A task is read in one place, its file; a second file with a list of ids is a
+second list, and law 2 says two lists diverge. The task file travels with `git mv`, so
+the history shows who set the priority and in which commit, next to the move. And the
+pre-write hook already guards task files, so the guard for a hand-written `priority`
+line lands where the other guards are. `targets.json` keeps what is not a task: the
+stocks.
+
+**Change.** `harness priority <id> --by <who> --why "<words>"` is the only writer; it
+refuses `--by agent` and an empty reason, and `--clear` removes the four fields. `new
+task` takes no priority. `check` exits 1 on a priority with no author or no date, with
+the agent as author, or with a date that is not `YYYY-MM-DD`; the error names the task
+and the command. The pre-write hook denies a `Write` or `Edit` that adds, removes, or
+changes a `priority*:` line in a task file. Tests: `tests/test_board.py`,
+`tests/test_hooks.py`. Mutations M16 and M17 in `docs/MUTATION.md`.
+
 ## P13. A front board row needs a date — written
 
 **Gap.** Source A's `docs/ACTIVITY.md` carries a free-text `Últ. toque` column. The
