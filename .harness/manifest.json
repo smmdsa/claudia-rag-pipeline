@@ -138,12 +138,12 @@
     "infra/rag/docker-compose.gpu.yml": {
       "kind": "owned",
       "template": "infra/rag/docker-compose.gpu.yml",
-      "sha256": "7ca8f38ac9acb4ae4ea370cac9962e7e62fe2f743cfed89f72e0ec038de937f2"
+      "sha256": "2d0617eaf181bdc1a23c8d8a1068752480f64144e3d6d2c1182c20fd0c46b8e7"
     },
     "infra/rag/docker-compose.yml": {
       "kind": "owned",
       "template": "infra/rag/docker-compose.yml",
-      "sha256": "bc52fcb741af41ea1e889c83b44f9d3c6cad84262e6ed0c6d754fb90cf75d6bc"
+      "sha256": "70b18ecaee6f358345cd83201f74d67cacd3393381889e75ba358a7dac22453c"
     },
     "infra/rag/package.json": {
       "kind": "owned",

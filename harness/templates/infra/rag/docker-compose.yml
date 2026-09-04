@@ -6,10 +6,9 @@
 #   curl -s -X POST http://127.0.0.1:8411/update    re-index now
 name: ${HARNESS_PROJECT:-harness}-rag
 
+# One image for both services. Only `rag` carries `build:`. Two services that build
+# the same tag race inside BuildKit and the second export fails with "already exists".
 x-rag: &rag
-  build:
-    context: .
-    target: cpu
   image: ${HARNESS_PROJECT:-harness}-rag:cpu
   environment:
     QMD_CONFIG_DIR: /config
@@ -30,6 +29,9 @@ services:
   # Long-lived MCP server. Claude Code connects with {"type":"http","url":"http://127.0.0.1:8410/mcp"}.
   rag:
     <<: *rag
+    build:
+      context: .
+      target: cpu
     container_name: ${HARNESS_PROJECT:-harness}-rag
     command: ["qmd", "mcp", "--http", "--host", "0.0.0.0", "--port", "8410"]
     ports:
@@ -46,6 +48,8 @@ services:
   rag-agent:
     <<: *rag
     container_name: ${HARNESS_PROJECT:-harness}-rag-agent
+    depends_on:
+      - rag
     command: ["python3", "/opt/agent/agent.py"]
     environment:
       QMD_CONFIG_DIR: /config

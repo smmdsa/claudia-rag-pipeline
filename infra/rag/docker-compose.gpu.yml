@@ -14,8 +14,6 @@ services:
               count: 1
               capabilities: [gpu]
   rag-agent:
-    build:
-      target: gpu
     image: ${HARNESS_PROJECT:-harness}-rag:gpu
     deploy:
       resources:

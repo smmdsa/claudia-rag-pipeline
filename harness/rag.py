@@ -128,7 +128,12 @@ def health_text(r):
         lines.append("  [!] " + w)
     i = r.get("index") or {}
     if i:
-        orphan = "not measured" if i.get("orphaned") is None else "%s (%s%%)" % (i["orphaned"], i.get("orphaned_pct", "?"))
+        if i.get("orphaned") is None:
+            orphan = "not measured"
+        elif "orphaned_pct" in i:
+            orphan = "%s (%s%%)" % (i["orphaned"], i["orphaned_pct"])
+        else:
+            orphan = str(i["orphaned"])  # no chunks yet: a percentage of 0 is not a number
         lines.append("  index: %s documents, %s chunks, %s pending vectors, orphaned %s"
                      % (i.get("documents", "?"), i.get("chunks", "?"), i.get("needs_embedding", "?"), orphan))
     for c in r["collections"]:

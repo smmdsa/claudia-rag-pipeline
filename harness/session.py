@@ -28,16 +28,18 @@ def front_rows(root):
     if not os.path.exists(p):
         return []
     rows = []
-    header_seen = False
-    for line in read_text(p).splitlines():
+    lines = read_text(p).splitlines()
+    for i, line in enumerate(lines):
+        if re.match(r"^##\s+Archive", line):
+            break  # closed fronts are not live fronts
         if not line.startswith("|"):
             continue
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if not header_seen:
-            header_seen = True
-            continue
         if all(re.match(r"^:?-+:?$", c) for c in cells if c):
-            continue
+            continue  # the separator
+        nxt = lines[i + 1] if i + 1 < len(lines) else ""
+        if nxt.startswith("|") and all(re.match(r"^:?-+:?$", c.strip()) for c in nxt.strip().strip("|").split("|") if c.strip()):
+            continue  # a header: the next line is its separator. Every table has one.
         if len(cells) < 3 or not cells[0]:
             continue
         if cells[0].startswith("(") and cells[0].endswith(")"):
