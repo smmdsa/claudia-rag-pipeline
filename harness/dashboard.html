@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Board</title>
+<style>
+  :root { color-scheme: light dark;
+    --bg:#f6f7f9; --card:#fff; --ink:#151a22; --ink2:#5a6472; --line:#d9dee6;
+    --todo:#8a93a1; --prog:#b7791f; --done:#2e7d5b; --warn:#b3413a; --eye:#1e5fa8; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0f1318; --card:#161b22; --ink:#e6eaef; --ink2:#a3aebb; --line:#2a333e;
+    --todo:#7a8593; --prog:#d9a441; --done:#4fa582; --warn:#e07068; --eye:#4f92db; } }
+  body { margin:0; padding:1.5rem; background:var(--bg); color:var(--ink); font:14px/1.45 system-ui, sans-serif; }
+  h1 { font-size:1.3rem; margin:0 0 .25rem; } h2 { font-size:1.05rem; margin:1.5rem 0 .5rem; }
+  .meta { color:var(--ink2); font-size:.85rem; }
+  .row { display:flex; gap:1rem; flex-wrap:wrap; margin:.75rem 0; }
+  .tile { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:.6rem .9rem; min-width:9rem; }
+  .tile b { display:block; font-size:1.4rem; } .tile span { color:var(--ink2); font-size:.8rem; }
+  .cols { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:.75rem; }
+  .col { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:.5rem; min-height:4rem; }
+  .col h4 { margin:0 0 .4rem; font-size:.8rem; text-transform:uppercase; letter-spacing:.04em; color:var(--ink2); }
+  .card { border:1px solid var(--line); border-left:4px solid var(--todo); border-radius:6px; padding:.4rem .6rem; margin:.35rem 0; background:var(--bg); }
+  .card.in-progress { border-left-color:var(--prog); } .card.done { border-left-color:var(--done); }
+  .card .id { font-family: ui-monospace, monospace; font-size:.8rem; color:var(--ink2); }
+  .chip { display:inline-block; font-size:.72rem; padding:0 .4rem; border-radius:999px; border:1px solid var(--line); margin-right:.25rem; }
+  .chip.eye { border-color:var(--eye); color:var(--eye); } .chip.warn { border-color:var(--warn); color:var(--warn); }
+  .chip.user { border-color:var(--prog); color:var(--prog); }
+  table { border-collapse:collapse; width:100%; } td, th { text-align:left; padding:.3rem .5rem; border-bottom:1px solid var(--line); }
+  .over { color:var(--warn); font-weight:600; }
+  .epic { margin:.75rem 0 0; font-weight:600; }
+  @media (max-width: 720px) { .cols { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<h1>Board</h1>
+<p class="meta" id="meta"></p>
+<div class="row" id="tiles"></div>
+<h2>Human verdict queue</h2>
+<div id="queue"></div>
+<div id="sprints"></div>
+<h2>Backlog</h2>
+<div id="backlog"></div>
+<script id="data" type="application/json">__BOARD_JSON__</script>
+<script>
+(function () {
+  const D = JSON.parse(document.getElementById('data').textContent);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const tasks = D.tasks, byState = s => tasks.filter(t => t.state === s);
+  const queue = tasks.filter(t => t.state === 'in-progress' && t.eye !== 'NONE');
+  const overdue = D.sprints.filter(s => s.status === 'ended' && tasks.some(t => t.sprint === s.id && t.state !== 'done'));
+  document.getElementById('meta').textContent =
+    'Cache built ' + (D.meta.built_at || '?') + ' · today ' + D.today + ' · harness ' + (D.meta.harness_version || '?') +
+    ' · the folder tree under work/ is the truth; this page is a copy.';
+  const tile = (n, label, cls) => `<div class="tile"><b class="${cls||''}">${esc(n)}</b><span>${esc(label)}</span></div>`;
+  document.getElementById('tiles').innerHTML =
+    tile(byState('todo').length, 'todo') + tile(byState('in-progress').length, 'in progress') + tile(byState('done').length, 'done') +
+    tile(queue.length, 'await a human verdict', queue.length ? 'over' : '') +
+    tile(tasks.filter(t => t.owner === 'user' && t.state !== 'done').length, 'only the user can do') +
+    tile(overdue.length, 'overdue sprints', overdue.length ? 'over' : '');
+  const chips = t => `<span class="chip">work ${esc(t.work)}</span>` +
+    `<span class="chip ${t.eye !== 'NONE' ? 'eye' : ''}">eye ${esc(t.eye)}</span>` +
+    (t.owner === 'user' ? '<span class="chip user">user</span>' : '') +
+    (t.due ? `<span class="chip warn">due ${esc(t.due)}</span>` : '') +
+    (t.priority === 1 ? '<span class="chip">priority 1</span>' : '') +
+    (t.needs_decision ? `<span class="chip warn">waits ${esc(t.needs_decision)}</span>` : '') +
+    (t.state === 'done' && t.eye !== 'NONE' && !t.has_verdict ? '<span class="chip warn">NO VERDICT</span>' : '');
+  const card = t => `<div class="card ${t.state}"><span class="id">${esc(t.id)}</span> ${esc(t.title)}<br>${chips(t)}</div>`;
+  const age = t => t.state_age_days == null ? 'not measured (move not committed)' : t.state_age_days + ' d';
+  document.getElementById('queue').innerHTML = queue.length
+    ? '<table><tr><th>id</th><th>title</th><th>eye</th><th>waiting</th><th>epic</th></tr>' +
+      queue.map(t => `<tr><td>${esc(t.id)}</td><td>${esc(t.title)}</td><td>${esc(t.eye)}</td><td>${esc(age(t))}</td><td>${esc(t.epic)}</td></tr>`).join('') + '</table>'
+    : '<p class="meta">empty. Nothing built waits for a person.</p>';
+  const cols = list => `<div class="cols">` + ['todo','in-progress','done'].map(s =>
+    `<div class="col"><h4>${s} (${list.filter(t => t.state === s).length})</h4>${list.filter(t => t.state === s).map(card).join('')}</div>`).join('') + `</div>`;
+  document.getElementById('sprints').innerHTML = D.sprints.map(s => {
+    const st = tasks.filter(t => t.sprint === s.id);
+    const when = s.days_remaining == null ? 'no dates' : (s.days_remaining >= 0 ? s.days_remaining + ' d remain' : 'ended ' + (-s.days_remaining) + ' d ago');
+    const over = s.status === 'ended' && st.some(t => t.state !== 'done');
+    return `<h2>${esc(s.id)} — ${esc(s.title)} <span class="meta">[${esc(s.status)} · ${esc(when)}]</span>` +
+      (over ? ' <span class="over">OVERDUE — the date does not move</span>' : '') + `</h2>` +
+      D.epics.filter(e => e.sprint === s.id).map(e => {
+        const et = st.filter(t => t.epic === e.id);
+        return `<p class="epic">${esc(e.id)} ${esc(e.title)} <span class="meta">(${et.filter(t => t.state==='done').length}/${et.length})</span></p>` + cols(et);
+      }).join('');
+  }).join('') || '<p class="meta">no sprint</p>';
+  const bl = tasks.filter(t => !t.sprint);
+  document.getElementById('backlog').innerHTML = bl.length ? bl.map(card).join('') : '<p class="meta">empty</p>';
+})();
+</script>
+</body>
+</html>
