@@ -1,0 +1,7 @@
+{
+  "name": "harness-rag",
+  "private": true,
+  "dependencies": {
+    "@tobilu/qmd": "2.8.3"
+  }
+}

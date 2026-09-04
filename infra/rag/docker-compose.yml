@@ -1,0 +1,76 @@
+# The search index stack. Two services, one image, one data volume.
+# Host paths come from .harness/env.local, which `python3 -m harness env` derives.
+#   ./up.sh                   MCP over HTTP on 127.0.0.1:${HARNESS_RAG_PORT}, state on 127.0.0.1:${HARNESS_RAG_STATE_PORT}
+#   ./up.sh --gpu             same, with the cuda target and a GPU reservation
+#   curl -s http://127.0.0.1:8411/state
+#   curl -s -X POST http://127.0.0.1:8411/update    re-index now
+name: ${HARNESS_PROJECT:-harness}-rag
+
+x-rag: &rag
+  build:
+    context: .
+    target: cpu
+  image: ${HARNESS_PROJECT:-harness}-rag:cpu
+  environment:
+    QMD_CONFIG_DIR: /config
+    # The MCP server binds 0.0.0.0 inside the container. The host publishes it on loopback only.
+    QMD_ALLOWED_HOSTS: "127.0.0.1:${HARNESS_RAG_PORT:-8410},localhost:${HARNESS_RAG_PORT:-8410},rag:8410"
+  volumes:
+    - rag-index:/data/cache/qmd
+    - rag-models:/data/cache/qmd/models
+    - ./config:/config:ro
+    # Read only. The container cannot write into the repository. This is a file
+    # system guarantee, not a convention. Prove it: docker compose exec rag touch /src/repo/x
+    - ${HARNESS_REPO_ROOT:?run python3 -m harness env}:/src/repo:ro
+    - ${HARNESS_MEMORY_DIR:?run python3 -m harness env}:/src/memory:ro
+  networks:
+    - harness-tools
+
+services:
+  # Long-lived MCP server. Claude Code connects with {"type":"http","url":"http://127.0.0.1:8410/mcp"}.
+  rag:
+    <<: *rag
+    container_name: ${HARNESS_PROJECT:-harness}-rag
+    command: ["qmd", "mcp", "--http", "--host", "0.0.0.0", "--port", "8410"]
+    ports:
+      - "127.0.0.1:${HARNESS_RAG_PORT:-8410}:8410"
+    healthcheck:
+      test: ["CMD", "bun", "-e", "fetch('http://127.0.0.1:8410/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+  # Re-indexes on a timer and publishes the index state over HTTP. Python standard library.
+  rag-agent:
+    <<: *rag
+    container_name: ${HARNESS_PROJECT:-harness}-rag-agent
+    command: ["python3", "/opt/agent/agent.py"]
+    environment:
+      QMD_CONFIG_DIR: /config
+      QMD_UPDATE_INTERVAL: ${HARNESS_RAG_UPDATE_INTERVAL:-900}
+      STATE_PORT: "8411"
+    volumes:
+      - rag-index:/data/cache/qmd
+      - rag-models:/data/cache/qmd/models
+      - ./config:/config:ro
+      - ./agent:/opt/agent:ro
+      - ${HARNESS_REPO_ROOT:?run python3 -m harness env}:/src/repo:ro
+      - ${HARNESS_MEMORY_DIR:?run python3 -m harness env}:/src/memory:ro
+    ports:
+      - "127.0.0.1:${HARNESS_RAG_STATE_PORT:-8411}:8411"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8411/health', timeout=3).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  rag-index:
+  rag-models:
+
+networks:
+  harness-tools:
+    driver: bridge

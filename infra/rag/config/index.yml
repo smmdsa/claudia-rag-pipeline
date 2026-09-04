@@ -1,0 +1,29 @@
+# Collections that the container indexes. Paths are CONTAINER paths and do not
+# change between machines. docker-compose.yml maps the host paths from
+# .harness/env.local onto them. `python3 -m harness rag config` regenerates this file
+# from the project profile.
+global_context: "harness-rag-pipeline: install an agent pipeline and a folder board into any repository"
+
+collections:
+  repo-docs:
+    path: /src/repo
+    pattern: "**/*.md"
+    ignore:
+      - "**/node_modules/**"
+      - "**/dist/**"
+      - "**/vendor/**"
+      - "**/.git/**"
+    context:
+      "/docs/sessions": "Session close documents, one per work session"
+      "/work": "The work board: sprints, epics, tasks"
+  repo-code:
+    path: /src/repo
+    pattern: "**/*.{js,jsx,mjs,py,sh}"
+    ignore:
+      - "**/node_modules/**"
+      - "**/dist/**"
+      - "**/vendor/**"
+      - "**/.git/**"
+  memory:
+    path: /src/memory
+    pattern: "**/*.md"

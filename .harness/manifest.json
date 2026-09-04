@@ -1,0 +1,187 @@
+{
+  "$comment": "The harness writes this file. Do not edit it by hand. `doctor` reads it.",
+  "harness_version": "0.1.0",
+  "created_at": "2026-09-04T19:23:31-03:00",
+  "rules_path": "CLAUDE.md",
+  "profile": {
+    "architecture": "Python package + two Docker services (qmd index, board page)",
+    "languages": [
+      "python",
+      "shell",
+      "javascript"
+    ],
+    "purpose": "install an agent pipeline and a folder board into any repository",
+    "end_user": "a developer who drives Claude Code in a repository and loses the record of what was done and checked when it fails"
+  },
+  "files": {
+    ".claude/agents/researcher.md": {
+      "kind": "owned",
+      "template": ".claude/agents/researcher.md",
+      "sha256": "c666c104455a295813d4f2d24bbd2c19cbb0d77d456948f2d5a81c63b48de794"
+    },
+    ".claude/settings.json": {
+      "kind": "seeded",
+      "template": ".claude/settings.json"
+    },
+    ".claude/skills/architecture-reader/SKILL.md": {
+      "kind": "owned",
+      "template": ".claude/skills/architecture-reader/SKILL.md",
+      "sha256": "250f86c534be6db75bf2cbc264bb5217ce5e6f4ec5ff0542317c60ef2eb657d2"
+    },
+    ".claude/skills/board/SKILL.md": {
+      "kind": "owned",
+      "template": ".claude/skills/board/SKILL.md",
+      "sha256": "0ec44c2551a098621f2c5034e59990f8e4e0f1e2e2c7421a7e6838a6f1fcec3d"
+    },
+    ".claude/skills/ceremony/SKILL.md": {
+      "kind": "owned",
+      "template": ".claude/skills/ceremony/SKILL.md",
+      "sha256": "581a045377f58e0af1c1686fe22bbcb5ebad196d9fad77c148b2e8c5f8d4055c"
+    },
+    ".claude/skills/end-user-impact/SKILL.md": {
+      "kind": "owned",
+      "template": ".claude/skills/end-user-impact/SKILL.md",
+      "sha256": "8e1ce77e91eaef1c038da0670de64d1464467cbe9afb15d80d13cfe10f32aee9"
+    },
+    ".claude/skills/research/SKILL.md": {
+      "kind": "owned",
+      "template": ".claude/skills/research/SKILL.md",
+      "sha256": "373031b1170e0d64e6c1f449d632b44564e48a5b7b5b6bd417fef18d85ecc4a3"
+    },
+    ".claude/skills/session-close/SKILL.md": {
+      "kind": "owned",
+      "template": ".claude/skills/session-close/SKILL.md",
+      "sha256": "0a47c9c2157acc155e2aa761291b68b29597339f808d95930ce748917eae702c"
+    },
+    ".claude/skills/session-start/SKILL.md": {
+      "kind": "owned",
+      "template": ".claude/skills/session-start/SKILL.md",
+      "sha256": "383dacc1106ee1397d4ca7989ea855415d6268226254412d217cb9bca76f8fd5"
+    },
+    ".claude/workflows/research.js": {
+      "kind": "owned",
+      "template": ".claude/workflows/research.js",
+      "sha256": "6d5fc9d01876698faa7984b85e6d8349ed54b35c195740c330e15eaa7e512d9f"
+    },
+    ".harness/escalations.md": {
+      "kind": "seeded",
+      "template": ".harness/escalations.md"
+    },
+    ".harness/journal.jsonl": {
+      "kind": "seeded",
+      "template": ".harness/journal.jsonl"
+    },
+    ".harness/targets.json": {
+      "kind": "seeded",
+      "template": ".harness/targets.json"
+    },
+    ".mcp.json": {
+      "kind": "seeded",
+      "template": ".mcp.json"
+    },
+    "CLAUDE.md": {
+      "kind": "owned",
+      "template": "CLAUDE.md",
+      "sha256": "d3ac8d9f7126780b0a875c8f672b942ad7e64c6aaa6204567ab09fef9b3b1aab"
+    },
+    "docs/ACTIVITY.md": {
+      "kind": "seeded",
+      "template": "docs/ACTIVITY.md"
+    },
+    "docs/session-log.md": {
+      "kind": "seeded",
+      "template": "docs/session-log.md"
+    },
+    ".gitignore": {
+      "kind": "seeded",
+      "template": "gitignore.lines"
+    },
+    "infra/board/Dockerfile": {
+      "kind": "owned",
+      "template": "infra/board/Dockerfile",
+      "sha256": "8fc9371bce5ec9a608fd3ff683b5c9ef699bfb73e9777ee55b7a3ad06f9c4391"
+    },
+    "infra/board/README.md": {
+      "kind": "owned",
+      "template": "infra/board/README.md",
+      "sha256": "9a2fbff736d9f1d37189a145600caf6cf327ce2d1dfb098e7f71eea04af63437"
+    },
+    "infra/board/docker-compose.yml": {
+      "kind": "owned",
+      "template": "infra/board/docker-compose.yml",
+      "sha256": "5365608a1b54c6ce48c1e61cb5cdda6866c5c6d1ff85957ba8bd9b6c6f1de3d9"
+    },
+    "infra/rag/Dockerfile": {
+      "kind": "owned",
+      "template": "infra/rag/Dockerfile",
+      "sha256": "b0be281d7bd4cd79e6b282a5ed3327f4815618b4a038c15225f875ffc10db939"
+    },
+    "infra/rag/README.md": {
+      "kind": "owned",
+      "template": "infra/rag/README.md",
+      "sha256": "5b16fb890228551832be95b82f2a59af9b5c84294d6f529e714c26b799ddca8f"
+    },
+    "infra/rag/agent/agent.py": {
+      "kind": "owned",
+      "template": "infra/rag/agent/agent.py",
+      "sha256": "d5b27ffa22859563b797f577e3484614235baac2fa233fbcb47f26c087df0a91"
+    },
+    "infra/rag/bun.lock": {
+      "kind": "owned",
+      "template": "infra/rag/bun.lock",
+      "sha256": "15a255e6747c03abb43fb0d0dd9df16dad52c72fd32133da6b27ea49602e6c18"
+    },
+    "infra/rag/config/index.yml": {
+      "kind": "seeded",
+      "template": "infra/rag/config/index.yml"
+    },
+    "infra/rag/docker-compose.gpu.yml": {
+      "kind": "owned",
+      "template": "infra/rag/docker-compose.gpu.yml",
+      "sha256": "7ca8f38ac9acb4ae4ea370cac9962e7e62fe2f743cfed89f72e0ec038de937f2"
+    },
+    "infra/rag/docker-compose.yml": {
+      "kind": "owned",
+      "template": "infra/rag/docker-compose.yml",
+      "sha256": "bc52fcb741af41ea1e889c83b44f9d3c6cad84262e6ed0c6d754fb90cf75d6bc"
+    },
+    "infra/rag/package.json": {
+      "kind": "owned",
+      "template": "infra/rag/package.json",
+      "sha256": "ab3404c7c7449241974cb46595c514051db16e53d6c63a60aa877b8335b9ca8e"
+    },
+    "infra/rag/up.sh": {
+      "kind": "owned",
+      "template": "infra/rag/up.sh",
+      "sha256": "1475529dce8dd034f1e5c7988248d2efaec3f0b590faaa666d4a80f3c2ba17a2"
+    },
+    "work/README.md": {
+      "kind": "owned",
+      "template": "work/README.md",
+      "sha256": "1e1884bb7e29ad3d71882685c281360fbb0a53731aaa64fac498d6565b7fb8a3"
+    },
+    "work/ROADMAP.md": {
+      "kind": "seeded",
+      "template": "work/ROADMAP.md"
+    },
+    "work/backlog/README.md": {
+      "kind": "seeded",
+      "template": "work/backlog/README.md"
+    },
+    "work/templates/epic.md": {
+      "kind": "owned",
+      "template": "work/templates/epic.md",
+      "sha256": "805656a586063397282d3b02b2573f7ee8f39d609aaa8f882433e4ea08dcb1e3"
+    },
+    "work/templates/sprint.md": {
+      "kind": "owned",
+      "template": "work/templates/sprint.md",
+      "sha256": "6cae667e0c18f3b2ed4e8bc2018f7ab1db9d8fe61d4c6afd01709c5c139c87f1"
+    },
+    "work/templates/task.md": {
+      "kind": "owned",
+      "template": "work/templates/task.md",
+      "sha256": "622d87b73fe712aaa2c84f6ce822e1d68eeb97209fc29758fe27201f62c7125c"
+    }
+  }
+}
