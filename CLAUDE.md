@@ -96,6 +96,7 @@ python3 -m harness profile show|set k=v|ask        python3 -m harness skills gen
 python3 -m harness board | next | list | show <id> | check | clock
 python3 -m harness start <id> | done <id> [--verdict "..." --by user] | back <id>
 python3 -m harness new task|epic|sprint --title ...  python3 -m harness assign <id> --epic EP-NN
+python3 -m harness priority <id> --by user --why "..." | --clear
 python3 -m harness ceremony plan|triage|review|retro [--sprint S] [--write]
 python3 -m harness state | target show|set <stock> <n> --by user --why "..." | escalate ...
 python3 -m harness session open|draft|close --slug S   python3 -m harness journal tail|observe
@@ -120,7 +121,9 @@ The agent never:
 
 - closes a task with `eye: GLANCE` or `eye: RUN` without the user's words in
   `--verdict`;
-- sets a target in `.harness/targets.json`, or a `priority`, from its own opinion;
+- sets a target in `.harness/targets.json`, or a `priority`, from its own opinion.
+  `priority` is written by `harness priority --by user` only. A hand-written
+  `priority` line is denied by the hook and rejected by `check`;
 - writes a verdict, a decision, or a date that the user did not give;
 - moves a file under `work/` by hand;
 - edits `.harness/manifest.json` or `.harness/journal.jsonl` by hand;

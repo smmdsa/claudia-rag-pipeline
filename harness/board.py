@@ -33,6 +33,9 @@ class Task:
     owner: str
     due: str
     priority: int
+    priority_by: str
+    priority_date: str
+    priority_why: str
     blocked_by: list
     decision: str
     refs: list
@@ -50,6 +53,22 @@ class Task:
 
     def needs_eye(self):
         return self.eye != "NONE"
+
+    def priority_provenance_error(self):
+        """The error text when `priority` has no author, no date, or the agent as author. Else ''."""
+        if not self.priority:
+            return ""
+        if not self.priority_by or not self.priority_date:
+            return ("%s carries priority %d with no author or no date. A priority without provenance is an "
+                    "opinion. Set it with `python3 -m harness priority %s --by user --why \"...\"`, or remove it "
+                    "with `python3 -m harness priority %s --clear`." % (self.id, self.priority, self.id, self.id))
+        if self.priority_by.strip().lower() == "agent":
+            return ("%s carries a priority that the agent set. The user names the next thing, never the agent. "
+                    "Run `python3 -m harness priority %s --by user --why \"...\"`, or `--clear`." % (self.id, self.id))
+        if parse_date(self.priority_date) is None:
+            return ("%s carries priority-date %r, and it is not YYYY-MM-DD. Run `python3 -m harness priority %s "
+                    "--by user --why \"...\"` to record it again." % (self.id, self.priority_date, self.id))
+        return ""
 
 
 @dataclass
@@ -114,6 +133,9 @@ def _read_task(path, state):
         owner=str(fields.get("owner") or "agent").lower(),
         due=str(fields.get("due") or ""),
         priority=int(fields.get("priority") or 0) if str(fields.get("priority") or "0").isdigit() else 0,
+        priority_by=str(fields.get("priority-by") or ""),
+        priority_date=str(fields.get("priority-date") or ""),
+        priority_why=str(fields.get("priority-why") or ""),
         blocked_by=fm.as_list(fields.get("blocked-by")),
         decision=str(fields.get("needs-decision") or ""),
         refs=fm.as_list(fields.get("refs")),
@@ -249,7 +271,8 @@ def waiting_decisions(tree):
 def task_dict(t, root):
     return {
         "id": t.id, "title": t.title, "work": t.work, "eye": t.eye, "owner": t.owner,
-        "due": t.due or None, "priority": t.priority, "blocked_by": t.blocked_by,
+        "due": t.due or None, "priority": t.priority, "priority_by": t.priority_by or None,
+        "priority_date": t.priority_date or None, "blocked_by": t.blocked_by,
         "needs_decision": t.decision or None, "refs": t.refs, "state": t.state,
         "sprint": t.sprint or None, "epic": t.epic or None, "path": rel(root, t.path),
         "has_verdict": t.has_verdict(),
@@ -298,7 +321,7 @@ def _line(t, tree):
     if t.due:
         extra.append("due " + t.due)
     if t.priority == 1:
-        extra.append("priority 1")
+        extra.append("priority 1 by %s" % (t.priority_by or "NOBODY"))
     if t.state == "in-progress" and t.needs_eye():
         extra.append("awaits verdict")
     why = why_not_ready(t, tree) if t.state == "todo" else ""
@@ -442,6 +465,10 @@ def check(tree, wip_cap=None):
             errors.append("%s: is done with eye %s and has no `## Verdict` section. A person closes it." % (t.id, t.eye))
         if t.state == "done" and t.decision:
             errors.append("%s: is done and still names needs-decision %s" % (t.id, t.decision))
+        # Law 8: a priority the agent assigns turns `next` into an opinion. Provenance, or nothing.
+        provenance = t.priority_provenance_error()
+        if provenance:
+            errors.append(provenance)
         for b in t.blocked_by:
             d = find(tree, b)
             if d is None:
@@ -526,6 +553,41 @@ def move(root, tree, task_id, to, verdict=None, by=None):
     return {"id": t.id, "from": t.state, "to": to, "how": how, "path": rel(root, dst), "note": note}
 
 
+PRIORITY_FIELDS = ("priority", "priority-by", "priority-date", "priority-why")
+
+
+def set_priority(root, tree, task_id, by=None, why=None, clear=False):
+    """The only writer of `priority`. It records the value, the author, the date, and the reason.
+
+    The agent cannot name itself as the author. The pre-write hook denies the hand edit.
+    """
+    t = find(tree, task_id)
+    if t is None:
+        raise HarnessError("no task with id %s" % task_id)
+    fields, body = fm.read(t.path)
+    kept = {k: v for k, v in fields.items() if k not in PRIORITY_FIELDS}
+    if clear:
+        write_text(t.path, fm.dump(kept, body))
+        return {"id": t.id, "priority": 0, "path": rel(root, t.path)}
+    if not by or not why:
+        raise HarnessError("a priority needs --by <who> and --why \"<the user's words>\". "
+                           "A priority without an author becomes the agent's priority.")
+    if by.strip().lower() == "agent":
+        raise HarnessError("the agent cannot set a priority. It is set from what the user SAID. Pass --by user.")
+    stamp = {"priority": 1, "priority-by": by.strip(), "priority-date": today().isoformat(), "priority-why": why.strip()}
+    # Keep the front matter readable: the priority block sits after `due`, or after `owner`.
+    anchor = "due" if "due" in kept else "owner"
+    ordered = {}
+    for key, value in kept.items():
+        ordered[key] = value
+        if key == anchor:
+            ordered.update(stamp)
+    if "priority" not in ordered:
+        ordered.update(stamp)
+    write_text(t.path, fm.dump(ordered, body))
+    return {"id": t.id, "priority": 1, "by": stamp["priority-by"], "date": stamp["priority-date"], "path": rel(root, t.path)}
+
+
 def assign(root, tree, task_id, epic_id):
     """Move a backlog task into the todo folder of an epic."""
     t = find(tree, task_id)
@@ -575,7 +637,7 @@ def template_text(root, name):
 
 
 def new_task(root, tree, title, epic=None, work="S", eye="NONE", owner="agent", due="",
-             priority=0, blocked_by=(), decision="", refs=()):
+             blocked_by=(), decision="", refs=()):
     if work.upper() not in WORK:
         raise HarnessError("work is %r. Use one of %s." % (work, " ".join(WORK)))
     if eye.upper() not in EYE:
@@ -600,8 +662,7 @@ def new_task(root, tree, title, epic=None, work="S", eye="NONE", owner="agent", 
     fields.update({"work": work.upper(), "eye": eye.upper(), "owner": owner})
     if due:
         fields["due"] = due
-    if priority:
-        fields["priority"] = priority
+    # No `priority` here. `set_priority` is the only writer, and it records the author.
     if blocked_by:
         fields["blocked-by"] = list(blocked_by)
     if decision:

@@ -74,14 +74,19 @@ cannot: `done` refuses an eye task without `--verdict`.
 |---|---|---|
 | `owner` | `agent` (default) · `user` | WHO does the work. A task can need no eye and still be one that only the user can do |
 | `due` | `YYYY-MM-DD` | the work has a deadline outside this repository. It outranks everything in `next` |
-| `priority` | `1` · absent | the USER named this task as the next thing, in the user's words |
+| `priority` | `1` · absent | the USER named this task as the next thing, in the user's words. It carries `priority-by`, `priority-date`, and `priority-why` |
 
 `owner` and `eye` answer different questions. `eye` says who CLOSES a task. `owner`
 says who DOES it. `next` reports `owner: user` tasks first, because the agent cannot
 do them, and it never lets them go quiet.
 
 `priority` is set from what the user SAID, and never from what the agent thinks
-matters. A priority that the agent assigns turns `next` into an opinion.
+matters. A priority that the agent assigns turns `next` into an opinion. The tool
+holds this rule: `python3 -m harness priority TASK-NNNN --by user --why "..."` is the
+only writer, `check` exits 1 on a priority with no author or no date, and the
+pre-write hook denies the hand edit. Source B measured the failure on 2026-09-04:
+the board ranked by epic number and named the wrong epic, because that was the only
+order the tool knew.
 
 ## The rules
 
@@ -113,6 +118,7 @@ python3 -m harness start TASK-0004
 python3 -m harness done  TASK-0004                              # eye NONE
 python3 -m harness done  TASK-0004 --verdict "it works" --by user  # eye GLANCE or RUN
 python3 -m harness back  TASK-0004
+python3 -m harness priority TASK-0004 --by user --why "the words"   # or --clear
 ```
 
 A task is READY when it sits in `todo`, every task in its `blocked-by` list is done,

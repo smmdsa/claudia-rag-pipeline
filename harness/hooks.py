@@ -18,6 +18,8 @@ from harness.util import rel
 STATE_FOLDER = re.compile(r"(^|/)work/sprints/[^/]+/epic-[^/]+/(todo|in-progress|done)/[^/]+$")
 TOOL_OWNED = (".harness/manifest.json", ".harness/journal.jsonl", ".harness/board.sqlite")
 USER_OWNED = (".harness/targets.json",)
+TASK_FILE = re.compile(r"(^|/)work/.*TASK-\d{4}[^/]*\.md$")
+PRIORITY_LINE = re.compile(r"^\s*priority(-[a-z]+)?\s*:.*$", re.M)
 MOVE_ON_WORK = re.compile(r"(^|[\s;&|(])(mv|cp|rm|rmdir)\s[^;&|]*\bwork/(sprints|backlog)\b")
 GIT_MV_ON_WORK = re.compile(r"\bgit\s+(mv|rm)\s[^;&|]*\bwork/")
 
@@ -75,7 +77,24 @@ def pre_write(root, payload):
     if STATE_FOLDER.search(rp) and tool == "Write" and not os.path.exists(os.path.join(root, rp)):
         return _deny("%s is inside a state folder. The folder is the state. Create a task with "
                      "`python3 -m harness new task --title ... --epic EP-NN`, and move it with start/done/back." % rp)
+    if TASK_FILE.search(rp) and _priority_lines_change(payload):
+        task_id = re.search(r"TASK-\d{4}", rp).group(0)
+        return _deny("this write sets or changes `priority` in %s by hand. A priority carries an author and a "
+                     "date, and the user names it. Run `python3 -m harness priority %s --by user --why \"...\"`."
+                     % (rp, task_id))
     return 0
+
+
+def _priority_lines(text):
+    return sorted(m.group(0).strip() for m in PRIORITY_LINE.finditer(text or ""))
+
+
+def _priority_lines_change(payload):
+    """True when the written text adds, removes, or changes a `priority*:` line."""
+    inp = payload.get("tool_input") or {}
+    if payload.get("tool_name") == "Write":
+        return bool(_priority_lines(inp.get("content")))
+    return _priority_lines(inp.get("new_string")) != _priority_lines(inp.get("old_string"))
 
 
 def pre_bash(root, payload):

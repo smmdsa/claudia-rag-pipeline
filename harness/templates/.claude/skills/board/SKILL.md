@@ -19,6 +19,7 @@ python3 -m harness start TASK-0004         # todo -> in-progress (git mv)
 python3 -m harness done  TASK-0004         # in-progress -> done (git mv). Eye tasks need --verdict.
 python3 -m harness back  TASK-0004         # in-progress -> todo
 python3 -m harness assign TASK-0004 --epic EP-02
+python3 -m harness priority TASK-0004 --by user --why "..."   # the only writer of priority; --clear removes it
 python3 -m harness check                   # the shape of the tree; exit 1 on red
 python3 -m harness clock                   # the days that remain
 python3 -m harness new task|epic|sprint --title "..."
@@ -51,7 +52,8 @@ Every read command accepts `--json`.
    until it closes.
 5. **After you create or move anything, run `check`.** The post-work hook runs it
    too. A red check is reported before any other work.
-6. **`priority: 1` comes from the user's words.** Set it when the user names the
+6. **`priority: 1` comes from the user's words, through the command.** Run
+   `python3 -m harness priority TASK-NNNN --by user --why "<the words>"` when the user names the
    next thing. Never set it from your own opinion.
 
 ## Out of scope

@@ -62,6 +62,11 @@ def build_parser():
     sp.add_argument("--verdict", help="the user's words, verbatim")
     sp.add_argument("--by", default="user", help="who gave the verdict (default: user)")
     add("back", "in-progress -> todo", json_=False).add_argument("id")
+    sp = add("priority", "set priority 1 on a task from the user's words, with the author and the date. --clear removes it.")
+    sp.add_argument("id")
+    sp.add_argument("--by", help="who named the task first. Never `agent`.")
+    sp.add_argument("--why", help="the user's words, verbatim")
+    sp.add_argument("--clear", action="store_true")
     sp = add("assign", "move a backlog task into the todo folder of an epic", json_=False)
     sp.add_argument("id")
     sp.add_argument("--epic", required=True)
@@ -77,7 +82,6 @@ def build_parser():
     sp.add_argument("--eye", default=None)
     sp.add_argument("--owner", default="agent")
     sp.add_argument("--due", default="")
-    sp.add_argument("--priority", type=int, default=0)
     sp.add_argument("--blocked-by", action="append", default=[])
     sp.add_argument("--needs-decision", default="")
     sp.add_argument("--ref", action="append", default=[])
@@ -225,6 +229,12 @@ def run(args):
         r = board.assign(root, tree, args.id, args.epic)
         print("%s -> %s todo (%s)" % (r["id"], r["epic"], r["how"]))
         return 0
+    if c == "priority":
+        tree = _tree(root)
+        r = board.set_priority(root, tree, args.id, by=args.by, why=args.why, clear=args.clear)
+        emit(r, js, lambda r: "%s: priority cleared" % r["id"] if not r["priority"]
+             else "%s: priority 1 by %s on %s" % (r["id"], r["by"], r["date"]))
+        return 0
     if c == "check":
         tree = _tree(root)
         errors, warnings = board.check(tree, wip_cap=state.wip_cap(root))
@@ -239,7 +249,7 @@ def run(args):
         tree = _tree(root)
         if args.kind == "task":
             r = board.new_task(root, tree, args.title, epic=args.epic, work=args.work or "S", eye=args.eye or "NONE",
-                               owner=args.owner, due=args.due, priority=args.priority, blocked_by=args.blocked_by,
+                               owner=args.owner, due=args.due, blocked_by=args.blocked_by,
                                decision=args.needs_decision, refs=args.ref)
             emit(r, js, lambda r: "%s created at %s. Write Why, What to do, Done when, Not covered." % (r["id"], r["path"]))
         elif args.kind == "epic":

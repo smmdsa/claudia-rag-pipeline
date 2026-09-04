@@ -31,7 +31,7 @@
     ".claude/skills/board/SKILL.md": {
       "kind": "owned",
       "template": ".claude/skills/board/SKILL.md",
-      "sha256": "0ec44c2551a098621f2c5034e59990f8e4e0f1e2e2c7421a7e6838a6f1fcec3d"
+      "sha256": "4a9b26ea5ced3581a511d4b407d4836af0f6b9b3cc50ee26ca6017a7a3852cb4"
     },
     ".claude/skills/ceremony/SKILL.md": {
       "kind": "owned",
@@ -82,7 +82,7 @@
     "CLAUDE.md": {
       "kind": "owned",
       "template": "CLAUDE.md",
-      "sha256": "d3ac8d9f7126780b0a875c8f672b942ad7e64c6aaa6204567ab09fef9b3b1aab"
+      "sha256": "9e22e0d4bace6eb8eb8a122f8dd37d8eba21c645b9772b40447bac3cc93a9cac"
     },
     "docs/ACTIVITY.md": {
       "kind": "seeded",
@@ -158,7 +158,7 @@
     "work/README.md": {
       "kind": "owned",
       "template": "work/README.md",
-      "sha256": "1e1884bb7e29ad3d71882685c281360fbb0a53731aaa64fac498d6565b7fb8a3"
+      "sha256": "96544613721ca00c238c3d457eff237279b7584dc4dfdbebaf5111a72053f91b"
     },
     "work/ROADMAP.md": {
       "kind": "seeded",
