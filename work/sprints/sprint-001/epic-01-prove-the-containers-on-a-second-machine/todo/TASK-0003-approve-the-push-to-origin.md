@@ -11,16 +11,17 @@ owner: user
 
 ## Why
 
-(the evidence: what was measured, with `file:line`)
+The brief of 2026-09-04 states: do not push. The remote `git@github.com:smmdsa/claudia-rag-pipeline.git` is set and 8 commits wait locally.
 
 ## What to do
 
-1. (step)
+1. Read `git log --oneline`.
+2. Run `git push -u origin main`.
 
 ## Done when
 
-- (a condition that a person or a checker can test, one per line)
+- `git rev-parse origin/main` equals `git rev-parse main`.
 
 ## Not covered
 
-(the axis that this task does not touch. This section is mandatory.)
+This task does not create a release tag.
