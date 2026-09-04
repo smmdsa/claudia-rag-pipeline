@@ -1,0 +1,28 @@
+# The board page in a container. It reads the folder tree from the read-only mount,
+# writes a SQLite CACHE under /data, and serves the kanban on loopback.
+#   docker compose --env-file .harness/env.local -f infra/board/docker-compose.yml up -d --build
+#   open http://127.0.0.1:8412/
+name: ${HARNESS_PROJECT:-harness}-board
+
+services:
+  board:
+    build:
+      context: .
+    image: ${HARNESS_PROJECT:-harness}-board:latest
+    container_name: ${HARNESS_PROJECT:-harness}-board
+    volumes:
+      - ${HARNESS_REPO_ROOT:?run python3 -m harness env}:/src/repo:ro
+      - board-cache:/data
+    ports:
+      - "127.0.0.1:${HARNESS_BOARD_PORT:-8412}:8412"
+    environment:
+      HARNESS_TODAY: ""
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8412/health', timeout=3).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  board-cache:

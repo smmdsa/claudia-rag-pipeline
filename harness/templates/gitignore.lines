@@ -1,0 +1,7 @@
+# harness: machine-local and cache files
+.harness/env.local
+.harness/board.sqlite
+.harness/board.sqlite.tmp
+__pycache__/
+*.pyc
+board.html

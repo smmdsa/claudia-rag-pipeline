@@ -1,0 +1,26 @@
+# Override for a machine with an NVIDIA GPU. Needs nvidia-container-toolkit and a
+# driver that supports CUDA 13. Check with:
+#   docker run --rm --gpus all <project>-rag:gpu nvidia-smi -L
+services:
+  rag:
+    build:
+      target: gpu
+    image: ${HARNESS_PROJECT:-harness}-rag:gpu
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+  rag-agent:
+    build:
+      target: gpu
+    image: ${HARNESS_PROJECT:-harness}-rag:gpu
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
