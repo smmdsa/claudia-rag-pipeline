@@ -1,6 +1,7 @@
 """The hooks, fed with the documented payloads, with no Claude Code.
 
-Mutation proof (docs/MUTATION.md): M06 (state folder not recognised) turned test_pre_write_denies_new_file_in_state_folder red.
+Mutation proof (docs/MUTATION.md): M06 (state folder not recognised) turned test_pre_write_denies_new_file_in_state_folder red,
+M17 (priority line not seen) turned test_pre_write_denies_priority_by_hand red.
 """
 import io
 import json
@@ -59,6 +60,30 @@ class HookTest(unittest.TestCase):
 
     def test_pre_write_ignores_paths_outside_root(self):
         code, out, _ = run_hook(self.root, "pre-write", {"tool_name": "Write", "tool_input": {"file_path": "/tmp/elsewhere.md"}})
+        self.assertEqual(out, "")
+
+    def test_pre_write_denies_priority_by_hand(self):
+        edit = {"tool_name": "Edit", "tool_input": {"file_path": self.task, "old_string": "owner: agent\n",
+                                                    "new_string": "owner: agent\npriority: 1\n"}}
+        _, out, _ = run_hook(self.root, "pre-write", edit)
+        self.assertEqual(decision(out), "deny")
+        self.assertIn("python3 -m harness priority TASK-0001 --by user", out)
+        # provenance lines by hand are denied too
+        edit["tool_input"]["new_string"] = "owner: agent\npriority: 1\npriority-by: user\npriority-date: 2026-09-05\n"
+        _, out, _ = run_hook(self.root, "pre-write", edit)
+        self.assertEqual(decision(out), "deny")
+        # a Write of a whole task file with a priority line
+        write = {"tool_name": "Write", "tool_input": {"file_path": self.task, "content": "---\nid: TASK-0001\npriority: 1\n---\n"}}
+        _, out, _ = run_hook(self.root, "pre-write", write)
+        self.assertEqual(decision(out), "deny")
+        # an edit that keeps the priority lines as they are passes
+        same = {"tool_name": "Edit", "tool_input": {"file_path": self.task, "old_string": "priority: 1\n## Why\n\nold",
+                                                    "new_string": "priority: 1\n## Why\n\nnew evidence"}}
+        _, out, _ = run_hook(self.root, "pre-write", same)
+        self.assertEqual(out, "")
+        # a priority line in a file that is not a task passes
+        _, out, _ = run_hook(self.root, "pre-write", {"tool_name": "Edit", "tool_input": {
+            "file_path": "docs/notes.md", "old_string": "a", "new_string": "priority: high"}})
         self.assertEqual(out, "")
 
     def test_pre_bash_denies_hand_moves(self):

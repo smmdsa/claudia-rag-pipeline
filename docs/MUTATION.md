@@ -27,6 +27,11 @@ not whether one does. Baseline: 106 tests, 0 red. After the last restore: 106 te
 | M13 | `harness/frontmatter.py` | list items are dropped | 5 — `BoardTest.test_check_finds_shape_errors`, `BoardTest.test_check_flags_done_with_open_blocker`, `BoardTest.test_next_skips_blocked_and_ranks_due_then_priority`, `FrontMatterTest.test_dump_round_trip`, `FrontMatterTest.test_parse_scalars_lists_and_body` |
 | M14 | `harness/dashboard.py` | an unmeasured age is stored as 0 | 1 — `DashboardTest.test_build_db_is_a_cache_with_built_at` |
 | M15 | `harness/board.py` | check accepts any work size | 1 — `BoardTest.test_check_finds_shape_errors` |
+| M16 | `harness/board.py` | check ignores a priority with no provenance | 1 — `BoardTest.test_priority_without_provenance_turns_check_red` |
+| M17 | `harness/hooks.py` | the pre-write hook never sees a priority line | 1 — `HookTest.test_pre_write_denies_priority_by_hand` |
+
+M16 and M17 ran on 2026-09-04 after the user chose enforcement for `priority`
+(proposal P17). Baseline 110 tests, 0 red. After the restore: 110 tests, 0 red.
 
 ## The gap that the method found
 

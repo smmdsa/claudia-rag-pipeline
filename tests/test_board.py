@@ -1,6 +1,7 @@
 """The board: scan, next, moves, verdicts, check, new.
 
-Mutation proof (docs/MUTATION.md): M01 (no verdict needed) 2 red, M02 (blockers ignored) 1 red, M15 (any work size) 1 red.
+Mutation proof (docs/MUTATION.md): M01 (no verdict needed) 2 red, M02 (blockers ignored) 1 red, M15 (any work size) 1 red,
+M16 (priority without provenance accepted) 1 red.
 """
 import os
 import unittest
@@ -41,10 +42,67 @@ class BoardTest(unittest.TestCase):
         self.assertEqual([t.id for t in agents], ["TASK-0001", "TASK-0002"])  # 0003 waits for 0001
         board.new_task(self.root, tree, "Urgent", epic=self.ids["epic"], due="2026-09-10")
         tree = board.scan(self.root)
-        board.new_task(self.root, tree, "Named first", epic=self.ids["epic"], priority=1)
+        board.new_task(self.root, tree, "Named first", epic=self.ids["epic"])
+        tree = board.scan(self.root)
+        board.set_priority(self.root, tree, "TASK-0005", by="user", why="this one opens the sprint")
         tree = board.scan(self.root)
         _, agents = board.next_tasks(tree)
         self.assertEqual([t.id for t in agents][:2], ["TASK-0004", "TASK-0005"])
+
+    def test_priority_with_provenance_is_valid(self):
+        tree = board.scan(self.root)
+        r = board.set_priority(self.root, tree, "TASK-0002", by="user", why="the login is what the client asked for")
+        self.assertEqual((r["priority"], r["by"], r["date"]), (1, "user", "2026-09-05"))
+        text = read_text(os.path.join(self.root, r["path"]))
+        self.assertIn("priority: 1\npriority-by: user\npriority-date: 2026-09-05\npriority-why:", text)
+        tree = board.scan(self.root)
+        t = board.find(tree, "TASK-0002")
+        self.assertEqual((t.priority, t.priority_by, t.priority_why), (1, "user", "the login is what the client asked for"))
+        errors, _ = board.check(tree)
+        self.assertEqual(errors, [])
+        self.assertIn("priority 1 by user", board.board_text(tree))
+        _, agents = board.next_tasks(tree)
+        self.assertEqual(agents[0].id, "TASK-0002")
+        board.set_priority(self.root, tree, "TASK-0002", clear=True)
+        tree = board.scan(self.root)
+        self.assertEqual(board.find(tree, "TASK-0002").priority, 0)
+        self.assertNotIn("priority", read_text(board.find(tree, "TASK-0002").path))
+
+    def test_priority_without_provenance_turns_check_red(self):
+        tree = board.scan(self.root)
+        t = board.find(tree, "TASK-0001")
+        text = read_text(t.path)  # read first: `open(path, "w")` truncates before a read in the same expression
+        self.assertIn("owner: agent\n", text)
+        with open(t.path, "w", encoding="utf-8") as fh:
+            fh.write(text.replace("owner: agent\n", "owner: agent\npriority: 1\n"))
+        errors, _ = board.check(board.scan(self.root))
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn("TASK-0001 carries priority 1 with no author or no date", errors[0])
+        self.assertIn("python3 -m harness priority TASK-0001 --by user --why", errors[0])
+        # the agent as author is an opinion too
+        text = read_text(t.path)
+        with open(t.path, "w", encoding="utf-8") as fh:
+            fh.write(text.replace("priority: 1\n", "priority: 1\npriority-by: agent\npriority-date: 2026-09-05\n"))
+        errors, _ = board.check(board.scan(self.root))
+        self.assertEqual(len(errors), 1)
+        self.assertIn("the agent set", errors[0])
+
+    def test_priority_command_records_the_author(self):
+        tree = board.scan(self.root)
+        with self.assertRaises(HarnessError):
+            board.set_priority(self.root, tree, "TASK-0001", by="user", why="")
+        with self.assertRaises(HarnessError):
+            board.set_priority(self.root, tree, "TASK-0001", by="agent", why="I think so")
+        with self.assertRaises(HarnessError):
+            board.set_priority(self.root, tree, "TASK-9999", by="user", why="x")
+        code, out, err = cli(self.root, "priority", "TASK-0001", "--by", "user", "--why", "first thing tomorrow")
+        self.assertEqual(code, 0, err)
+        self.assertIn("TASK-0001: priority 1 by user on", out)
+        code, out, err = cli(self.root, "priority", "TASK-0003", "--by", "agent", "--why", "x")
+        self.assertEqual(code, 1)
+        self.assertIn("agent cannot set", err)
+        code, _, _ = cli(self.root, "check")
+        self.assertEqual(code, 0)
 
     def test_next_reports_user_owned_first(self):
         tree = board.scan(self.root)
