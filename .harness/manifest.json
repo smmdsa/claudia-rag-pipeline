@@ -1,6 +1,6 @@
 {
   "$comment": "The harness writes this file. Do not edit it by hand. `doctor` reads it.",
-  "harness_version": "0.1.0",
+  "harness_version": "0.2.0",
   "created_at": "2026-09-04T19:23:31-03:00",
   "rules_path": "CLAUDE.md",
   "profile": {
@@ -82,7 +82,7 @@
     "CLAUDE.md": {
       "kind": "owned",
       "template": "CLAUDE.md",
-      "sha256": "bead2d5bb97dbba7daf9ed2bb23306091b8914683466c01d75f1ae9af58b6b6e"
+      "sha256": "a78fc13e183233de23b9501b057b5a58aa0a112e5b30a9ff4228c898d1c28b27"
     },
     "docs/ACTIVITY.md": {
       "kind": "seeded",
@@ -153,7 +153,7 @@
     "infra/rag/up.sh": {
       "kind": "owned",
       "template": "infra/rag/up.sh",
-      "sha256": "1475529dce8dd034f1e5c7988248d2efaec3f0b590faaa666d4a80f3c2ba17a2"
+      "sha256": "da52492d276312f77ec9df69c02c40830d3d1803db930dfce2b86fa55a6b28fb"
     },
     "work/README.md": {
       "kind": "owned",

@@ -49,6 +49,13 @@ not whether one does. Baseline: 106 tests, 0 red. After the last restore: 106 te
 | M35 | `harness/board.py` | the verdict lookup ignores the sprint of the task | 1 — `EpicIdTest.test_a_verdict_lands_in_the_sheet_of_its_own_sprint` |
 | M36 | `harness/board.py` | new sprint accepts any id, whatever its shape | 1 — `EpicIdTest.test_new_sprint_refuses_an_id_that_is_not_sprint_nnn` |
 | M37 | `harness/board.py` | new sprint overwrites a sprint that exists | 1 — `EpicIdTest.test_new_sprint_refuses_an_id_that_exists` |
+| M38 | `harness/stack.py` | the port check ignores who holds the port | 1 — `PortTest.test_a_port_that_this_stack_holds_is_not_a_conflict` |
+| M39 | `harness/stack.py` | a stopped container still claims its published port | 1 — `PortTest.test_a_stopped_container_does_not_hold_its_port` |
+
+M38 and M39 ran on 2026-09-05, after `./infra/rag/up.sh` refused to run on a stack that
+was already up. Baseline 151 tests, 0 red. After the restore: 151 tests, 0 red.
+`harness ports` binds a port to test it, so it cannot name the holder. The script told
+the user to override a port that nothing else wanted.
 
 M34 to M37 ran on 2026-09-05, after the second sprint of this repository exposed the
 defect. Baseline 147 tests, 0 red. After the restore: 147 tests, 0 red.

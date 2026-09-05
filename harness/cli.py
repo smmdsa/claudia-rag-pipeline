@@ -52,7 +52,7 @@ def build_parser():
     sp.add_argument("action", choices=["generate"])
 
     sp = add("stack", "the Docker stacks: report them, start them, stop them")
-    sp.add_argument("action", choices=["status", "start", "stop", "up"], nargs="?", default="status")
+    sp.add_argument("action", choices=["status", "start", "stop", "up", "ports"], nargs="?", default="status")
     sp.add_argument("--stack", default="rag", choices=sorted(stack.STACKS), help="which stack (default: rag)")
     sp.add_argument("--gpu", action="store_true", help="up: add the cuda target")
 
@@ -207,6 +207,10 @@ def run(args):
         return 0
 
     if c == "stack":
+        if args.action == "ports":
+            r = stack.port_report(root, args.stack)
+            emit(r, js, stack.port_text)
+            return 1 if r["conflicts"] or not r["docker"] else 0
         fn = {"status": stack.status, "start": stack.start, "stop": stack.stop}.get(args.action)
         r = fn(root, args.stack) if fn else stack.up(root, args.stack, gpu=args.gpu)
         emit(r, js, stack.status_text)

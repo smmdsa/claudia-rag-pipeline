@@ -125,6 +125,45 @@ class StackTest(unittest.TestCase):
         self.assertEqual([], calls)
 
 
+class PortTest(unittest.TestCase):
+    """`harness ports` binds a port to test it, so it cannot name the holder. A stack
+    that already runs holds its own ports, and `up -d` on it is a no operation."""
+
+    def setUp(self):
+        self.root = make_repo()
+
+    def tearDown(self):
+        rm(self.root)
+
+    def _report(self, rows, free):
+        with mock.patch.object(stack, "sh", fake_sh(ps_rows=rows)), \
+             mock.patch.object(stack.ports, "is_free", lambda p, host="127.0.0.1": free):
+            return stack.port_report(self.root, "rag")
+
+    def test_a_port_that_this_stack_holds_is_not_a_conflict(self):
+        rows = [dict(PS[0], State="running", Publishers=[{"PublishedPort": 8410}]),
+                dict(PS[1], State="running", Publishers=[{"PublishedPort": 8411}])]
+        r = self._report(rows, free=False)
+        self.assertEqual([], r["conflicts"])
+        self.assertTrue(all(row["mine"] for row in r["ports"]))
+        self.assertIn("held by this stack", stack.port_text(r))
+
+    def test_a_port_that_a_stranger_holds_is_a_conflict(self):
+        r = self._report([], free=False)
+        self.assertEqual([8410, 8411], r["conflicts"])
+        self.assertIn("another process", stack.port_text(r))
+
+    def test_a_free_port_is_neither(self):
+        r = self._report([], free=True)
+        self.assertEqual([], r["conflicts"])
+        self.assertFalse(any(row["mine"] for row in r["ports"]))
+
+    def test_a_stopped_container_does_not_hold_its_port(self):
+        rows = [dict(PS[0], State="exited", Publishers=[{"PublishedPort": 8410}])]
+        r = self._report(rows, free=False)
+        self.assertEqual([8410, 8411], r["conflicts"])
+
+
 class SessionStackTest(unittest.TestCase):
     """`session open` uses the canary as the signal and docker as the repair."""
 

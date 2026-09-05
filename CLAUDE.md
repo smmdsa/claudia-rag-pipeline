@@ -1,6 +1,6 @@
 # harness-rag-pipeline — rules for the agent
 
-The harness installed this file (version 0.1.0). The skills point at
+The harness installed this file (version 0.2.0). The skills point at
 it. The rules live here and in `work/README.md`. They live nowhere else.
 
 ## Writing rules — read first, apply always

@@ -15,7 +15,8 @@ next to the code.
 
 `ARCHITECTURE.md` names every component, port, and contract. `docs/DESIGN-LAWS.md`
 records the twelve laws and the measured failures behind them. `docs/PROPOSALS.md`
-lists what this product changes against its two sources.
+lists what this product changes against its two sources. `CHANGELOG.md` records every
+version, with the measurement behind each change.
 
 ## Install in 60 seconds
 
@@ -145,6 +146,9 @@ The suite needs no network and no Docker. Every test module header records the
 mutation that proved its tests turn red. `docs/MUTATION.md` holds the full record.
 
 ## Upgrade and uninstall
+
+`CHANGELOG.md` holds the upgrade notes of every version. Read the notes of your target
+version before you upgrade.
 
 ```bash
 python3 -m harness upgrade          # rewrites the unchanged owned files, keeps your edits, records the version

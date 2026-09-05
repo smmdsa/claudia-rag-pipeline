@@ -14,12 +14,18 @@ does `infra/rag/up.sh`. `session open` names that command when no container exis
 import json
 import os
 
-from harness import env
+from harness import env, ports
 from harness.util import HarnessError, sh
 
 STACKS = {
     "rag": os.path.join("infra", "rag", "docker-compose.yml"),
     "board": os.path.join("infra", "board", "docker-compose.yml"),
+}
+
+# The ports that each stack publishes, by the variable that overrides each one.
+STACK_PORTS = {
+    "rag": ("HARNESS_RAG_PORT", "HARNESS_RAG_STATE_PORT"),
+    "board": ("HARNESS_BOARD_PORT",),
 }
 
 # `docker compose start` on a stopped container takes seconds. The cap catches a
@@ -83,8 +89,17 @@ def status(root, name="rag"):
             row = json.loads(line)
         except ValueError:
             continue
+        published = []
+        for pub in row.get("Publishers") or []:
+            try:
+                port = int(pub.get("PublishedPort") or 0)
+            except (TypeError, ValueError):
+                continue
+            if port:
+                published.append(port)
         report["services"].append({"service": row.get("Service"), "name": row.get("Name"),
-                                   "state": row.get("State"), "health": row.get("Health") or ""})
+                                   "state": row.get("State"), "health": row.get("Health") or "",
+                                   "published": sorted(set(published))})
     present = {s["service"] for s in report["services"]}
     report["running"] = sorted(s["service"] for s in report["services"] if s["state"] == "running")
     report["stopped"] = sorted(s["service"] for s in report["services"] if s["state"] != "running")
@@ -148,6 +163,49 @@ def stop(root, name="rag"):
     after = status(root, name)
     after["stopped_now"] = sorted(s for s in wanted if s not in after["running"])
     return after
+
+
+def port_report(root, name="rag"):
+    """Report every port of one stack: free, held by this stack, or held by a stranger.
+
+    `harness ports` binds a port to test it, so it cannot say who holds a taken port.
+    A stack that already runs holds its own ports, and `docker compose up -d` on it is
+    a no operation. A check that refuses that case tells the user to override a port
+    that nothing else wants (law 11 measures the port, not the owner).
+    """
+    report = status(root, name)
+    mine = set()
+    for s in report["services"]:
+        if s["state"] == "running":
+            mine.update(s.get("published") or [])
+    rows = []
+    for var in STACK_PORTS.get(name, ()):
+        port = ports.port_for(var)
+        free = ports.is_free(port)
+        rows.append({"var": var, "port": port, "free": free,
+                     "mine": port in mine, "conflict": (not free) and port not in mine})
+    report["ports"] = rows
+    report["conflicts"] = [r["port"] for r in rows if r["conflict"]]
+    return report
+
+
+def port_text(r):
+    if not r["docker"]:
+        return "STACK %s: docker is not available. %s" % (r["stack"], r["reason"])
+    lines = []
+    for row in r.get("ports") or []:
+        if row["conflict"]:
+            state = "TAKEN by another process"
+        elif row["mine"]:
+            state = "held by this stack"
+        else:
+            state = "free"
+        lines.append("  %-6s %-5d %-24s %s" % ("BUSY" if row["conflict"] else "ok",
+                                               row["port"], row["var"], state))
+    if r["conflicts"]:
+        lines.append("A port is taken by another process. Override it in the environment, "
+                     "or stop that process. Ports: %s." % ", ".join(str(p) for p in r["conflicts"]))
+    return "\n".join(lines)
 
 
 def brief_line(r):
