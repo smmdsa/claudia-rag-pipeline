@@ -40,6 +40,21 @@ not whether one does. Baseline: 106 tests, 0 red. After the last restore: 106 te
 | M26 | `harness/manifest.py` | doctor never marks the kind of a missing file | 2 — `ReseedTest.test_doctor_marks_a_missing_seeded_file`, `ReseedTest.test_session_open_writes_the_missing_seeded_files_again` |
 | M27 | `harness/session.py` | session open ignores a repository that keeps its board out of git | 1 — `ReseedTest.test_session_open_writes_the_missing_seeded_files_again` |
 | M28 | `harness/scaffold.py` | init rewrites settings.json when no key changed | 1 — `ReseedTest.test_reseed_leaves_a_compact_settings_file_alone` |
+| M29 | `harness/stack.py` | start builds the image instead of starting the container | 2 — `StackTest.test_start_never_builds`, `StackTest.test_start_reports_what_it_started` |
+| M30 | `harness/stack.py` | start builds a container that does not exist | 1 — `StackTest.test_start_refuses_to_build_a_container_that_does_not_exist` |
+| M31 | `harness/stack.py` | status calls docker before it reads the compose file | 1 — `StackTest.test_a_missing_compose_file_reports_and_never_calls_docker` |
+| M32 | `harness/session.py` | session open starts the stack whatever the canary says | 1 — `SessionStackTest.test_a_green_canary_never_calls_docker` |
+| M33 | `harness/session.py` | session open ignores --no-stack | 1 — `SessionStackTest.test_no_stack_never_calls_docker` |
+
+M29 to M33 ran on 2026-09-05 for the stack repair that `session open` runs. Baseline
+141 tests, 0 red. After the restore: 141 tests, 0 red. The suite needs no daemon: every
+test replaces `harness.stack.sh` and measures the commands that the module builds.
+
+`StackTest.test_an_unknown_stack_name_is_an_error` turned red once for real on
+2026-09-05, with no mutation. `status` read `STACKS[name]` to build its report before
+`compose_file` checked the name, so an unknown stack raised `KeyError` and not the
+error text that names the two stacks. Rule 11 of the writing rules: an error says what
+happened, why, and what to do next. A `KeyError` says none of the three.
 
 M18 to M24 ran on 2026-09-05 for the `help` command and the seeded first task.
 Baseline 123 tests, 0 red. After the restore: 123 tests, 0 red.

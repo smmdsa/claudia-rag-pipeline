@@ -15,12 +15,22 @@ python3 -m harness session open
 ```
 
 The command runs `doctor` at step 0. If the repository is not initialised, it runs
-`init` and prints what it created. Then it runs the RAG canary, the clock, the
-board, and the state. It prints one brief. Add `--json` for the raw data.
+`init` and prints what it created. If every problem is a missing seeded file, it runs
+`init` and prints `RESEED`. Then it runs the RAG canary. If the canary is BROKEN, it
+starts the containers of the `rag` stack that exist and are stopped. Then it runs the
+clock, the board, and the state. It prints one brief. Add `--json` for the raw data.
+
+The command starts a container. It never builds an image. A build needs the network
+and minutes. If the brief names a container that is gone, run `python3 -m harness
+stack up`. Add `--no-stack` to skip the repair.
 
 What each line of the brief means:
 
 - `HARNESS: damaged` — fix it before any work. The line names the file and the fix.
+- `RESEED` — this repository keeps its own board out of git. `init` wrote the seeded
+  files again. Nothing is wrong.
+- `STACK: started ...` — the containers were down. They run now, and the index needs
+  a moment. `STACK: docker is not available` — the session runs without the index.
 - `RAG: BROKEN` — this session searches blind. Say so in the first line of your brief.
   Every claim about call sites then comes from grep, and grep misses the literal
   string form and the DOM form of an event. Do not fix the RAG on your own. Report it.

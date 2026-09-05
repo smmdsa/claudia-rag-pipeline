@@ -90,6 +90,23 @@ python3 -m harness ports         # 8410, 8411, 8412 must be free, or override th
 python3 -m harness rag health    # RAG: OK · warnings · BROKEN, exit 0 · 1 · 2
 ```
 
+`session open` repairs this stack for you. The canary is the signal and docker is the
+repair: a green canary costs no docker call, and a BROKEN canary makes the session
+start every container that exists and is stopped.
+
+```bash
+python3 -m harness stack status              # one line per service
+python3 -m harness stack start | stop        # start what exists. Never build.
+python3 -m harness stack up [--gpu]          # build the image, then start
+python3 -m harness stack status --stack board
+python3 -m harness session open --no-stack   # never touch docker
+```
+
+`start` never builds an image. A build needs the network and minutes, and a session
+brief must stay fast. If no container exists, the brief names `stack up` and stops.
+If docker is not on the PATH, or the daemon does not answer, the brief says so in one
+line and the session continues without the index.
+
 The stack mounts the repository read only. Prove it:
 
 ```bash

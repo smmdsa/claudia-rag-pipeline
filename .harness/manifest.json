@@ -56,7 +56,7 @@
     ".claude/skills/session-start/SKILL.md": {
       "kind": "owned",
       "template": ".claude/skills/session-start/SKILL.md",
-      "sha256": "383dacc1106ee1397d4ca7989ea855415d6268226254412d217cb9bca76f8fd5"
+      "sha256": "0f0c0d4ab407f403a0af71ac97e1bca710a54aef0fb92fca9d259a8cb82fe911"
     },
     ".claude/workflows/research.js": {
       "kind": "owned",
@@ -82,7 +82,7 @@
     "CLAUDE.md": {
       "kind": "owned",
       "template": "CLAUDE.md",
-      "sha256": "c3d337ca606ab03520b5f63c739b4e7e1d07cbe0f966c66868398e926a32d9e8"
+      "sha256": "da7e4a0b130a0fe01211c89e7226bb8401bbb46122ed6af4073ead22a7450d89"
     },
     "docs/ACTIVITY.md": {
       "kind": "seeded",

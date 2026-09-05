@@ -8,8 +8,9 @@ the RAG stack to re-index. Both `open` and `close` run with no RAG stack.
 import glob
 import os
 import re
+import time
 
-from harness import board, journal, manifest, rag, scaffold, state
+from harness import board, journal, manifest, rag, scaffold, stack, state
 from harness.board import next_tasks, scan, summary, waiting_decisions
 from harness.clock import overdue
 from harness.util import HarnessError, human_delta, now, parse_date, parse_iso, read_text, sh, write_text
@@ -67,7 +68,13 @@ def last_session_doc(root):
     return files[-1] if files else None
 
 
-def open_brief(root, with_rag=True):
+# After `docker compose start` a service needs a moment to answer. Three tries over
+# fifteen seconds cover a warm start. A cold start is a build, and `start` never builds.
+RETRY_SLEEP = 5
+RETRIES = 3
+
+
+def open_brief(root, with_rag=True, with_stack=True):
     brief = {"now": now().isoformat(timespec="seconds")}
     doc = manifest.doctor(root)
     if doc["state"] == "not-initialised":
@@ -79,6 +86,16 @@ def open_brief(root, with_rag=True):
         doc = manifest.doctor(root)
     brief["doctor"] = doc
     brief["rag"] = rag.health(root) if with_rag else {"level": "skipped", "problems": [], "warnings": []}
+    if with_rag and with_stack and brief["rag"]["level"] == "broken":
+        # The canary is the signal. Docker is the repair. A green canary costs no
+        # docker call at all, so the common session never shells out.
+        report = stack.start(root, "rag")
+        brief["stack"] = report
+        for _ in range(RETRIES if report.get("started") else 0):
+            time.sleep(RETRY_SLEEP)
+            brief["rag"] = rag.health(root)
+            if brief["rag"]["level"] != "broken":
+                break
 
     last = journal.last_session(root)
     brief["last_session"] = last
@@ -140,6 +157,10 @@ def open_text(b):
                      % len(b["reseeded"]["created"]))
     if b["doctor"]["state"] != "sound":
         lines.append(manifest.doctor_text(b["doctor"]))
+    if b.get("stack"):
+        line = stack.brief_line(b["stack"])
+        if line:
+            lines.append(line)
     if b["rag"]["level"] == "broken":
         lines.append("RAG: BROKEN — this session searches blind. " + "; ".join(b["rag"]["problems"]))
     elif b["rag"]["level"] == "warnings":

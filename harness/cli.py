@@ -9,7 +9,7 @@ import json
 import os
 import sys
 
-from harness import VERSION, board, ceremonies, dashboard, env, hooks, journal, manifest, ports, profile, rag, scaffold, session, state
+from harness import VERSION, board, ceremonies, dashboard, env, hooks, journal, manifest, ports, profile, rag, scaffold, session, stack, state
 from harness import help as help_
 from harness.board import scan
 from harness.clock import clock_report, clock_text
@@ -50,6 +50,11 @@ def build_parser():
     sp.add_argument("pairs", nargs="*", help="key=value for `set`")
     sp = add("skills", "generate the project skills from the profile")
     sp.add_argument("action", choices=["generate"])
+
+    sp = add("stack", "the Docker stacks: report them, start them, stop them")
+    sp.add_argument("action", choices=["status", "start", "stop", "up"], nargs="?", default="status")
+    sp.add_argument("--stack", default="rag", choices=sorted(stack.STACKS), help="which stack (default: rag)")
+    sp.add_argument("--gpu", action="store_true", help="up: add the cuda target")
 
     add("board", "the whole picture, computed from the tree")
     add("next", "the first task the agent can start now. Tasks only the user can do print first.")
@@ -117,6 +122,7 @@ def build_parser():
     sp.add_argument("action", choices=["open", "draft", "close"])
     sp.add_argument("--slug")
     sp.add_argument("--no-rag", action="store_true", help="open: skip the RAG canary")
+    sp.add_argument("--no-stack", action="store_true", help="open: never start a stopped container")
     sp.add_argument("--qa-closed", action="append", default=[], help="close: TASK-NNNN=verdict[:how]")
     sp.add_argument("--qa-open", action="append", default=[])
     sp.add_argument("--surprise", action="append", default=[])
@@ -199,6 +205,11 @@ def run(args):
         emit({"written": r}, js, lambda r: "written: " + ", ".join(r["written"]))
         return 0
 
+    if c == "stack":
+        fn = {"status": stack.status, "start": stack.start, "stop": stack.stop}.get(args.action)
+        r = fn(root, args.stack) if fn else stack.up(root, args.stack, gpu=args.gpu)
+        emit(r, js, stack.status_text)
+        return 0 if r.get("docker") and not r.get("reason") else 1
     if c == "board":
         tree = _tree(root)
         emit(board.tree_dict(tree), js, lambda d: board.board_text(tree))
@@ -303,7 +314,7 @@ def run(args):
 
     if c == "session":
         if args.action == "open":
-            b = session.open_brief(root, with_rag=not args.no_rag)
+            b = session.open_brief(root, with_rag=not args.no_rag, with_stack=not args.no_stack)
             emit(b, js, session.open_text)
         elif args.action == "draft":
             p = session.draft(root, args.slug)

@@ -23,6 +23,7 @@ third-party code, and a lockfile pins that code.
 │   ├── journal.py              .harness/journal.jsonl
 │   ├── session.py              session open and session close
 │   ├── ports.py                port checks
+│   ├── stack.py                the Docker stacks: report, start, stop
 │   ├── env.py                  the derived machine environment file
 │   ├── profile.py              the project profile and the skill generator
 │   ├── hooks.py                the hook entry points
