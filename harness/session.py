@@ -10,7 +10,7 @@ import os
 import re
 import time
 
-from harness import board, journal, manifest, rag, scaffold, stack, state
+from harness import board, journal, manifest, mcp, rag, scaffold, stack, state
 from harness.board import next_tasks, scan, summary, waiting_decisions
 from harness.clock import overdue
 from harness.util import HarnessError, human_delta, now, parse_date, parse_iso, read_text, sh, write_text
@@ -96,6 +96,11 @@ def open_brief(root, with_rag=True, with_stack=True):
             brief["rag"] = rag.health(root)
             if brief["rag"]["level"] != "broken":
                 break
+    # The index answers on its port, and that does not prove that THIS agent can
+    # search. Claude Code opens an MCP connection once, when its process starts.
+    brief["mcp"] = (mcp.link_state(root) if with_rag and with_stack
+                    else {"state": "unknown", "reason": "not measured", "gap": None,
+                          "agent_started": None, "index_started": None})
 
     last = journal.last_session(root)
     brief["last_session"] = last
@@ -165,6 +170,9 @@ def open_text(b):
         lines.append("RAG: BROKEN — this session searches blind. " + "; ".join(b["rag"]["problems"]))
     elif b["rag"]["level"] == "warnings":
         lines.append("RAG: warnings — " + "; ".join(b["rag"]["warnings"]))
+    link = mcp.link_line(b.get("mcp") or {})
+    if link:
+        lines.append(link)
     lines.append("")
     if b["last_session"]:
         lines.append("## Last session: %s" % b["last_session"].get("slug"))

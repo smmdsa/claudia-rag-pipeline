@@ -9,7 +9,7 @@ import json
 import os
 import sys
 
-from harness import VERSION, board, ceremonies, dashboard, env, hooks, journal, manifest, ports, profile, rag, scaffold, session, stack, state
+from harness import VERSION, board, ceremonies, dashboard, env, hooks, journal, manifest, mcp, ports, profile, rag, scaffold, session, stack, state
 from harness import help as help_
 from harness.board import scan
 from harness.clock import clock_report, clock_text
@@ -132,8 +132,8 @@ def build_parser():
 
     add("ports", "check every port the harness binds. Exit 1 when one is taken.")
     add("env", "derive and write .harness/env.local")
-    sp = add("rag", "the search index: health, config, update")
-    sp.add_argument("action", choices=["health", "config", "update"])
+    sp = add("rag", "the search index: health, config, update, link")
+    sp.add_argument("action", choices=["health", "config", "update", "link"])
     sp.add_argument("--state-url")
     sp = add("dashboard", "the board dashboard: build-db, serve, static")
     sp.add_argument("action", choices=["build-db", "serve", "static"])
@@ -347,6 +347,10 @@ def run(args):
         if args.action == "config":
             emit(rag.write_config(root), js, lambda r: "written %s with collections %s" % (r["path"], ", ".join(r["collections"])))
             return 0
+        if args.action == "link":
+            r = mcp.link_state(root)
+            emit(r, js, mcp.link_text)
+            return 1 if r["state"] == "stale" else 0
         r = rag.request_update(root, url=args.state_url)
         emit(r, js, lambda r: "re-index %s" % ("requested: %s" % r["note"] if r["ok"] else "FAILED: %s" % r["note"]))
         return 0 if r["ok"] else 1

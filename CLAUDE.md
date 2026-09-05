@@ -55,6 +55,8 @@ Use the left column. Never use the right column.
 | eye | QA time, review time, human check |
 | size | estimate, points |
 | help | onboarding, tour, guide, walkthrough |
+| note | comment, annotation, remark, log entry |
+| modal | dialog, popup, lightbox, overlay |
 
 Add a row when you choose a new term. Do not remove rows.
 
@@ -103,7 +105,7 @@ python3 -m harness priority <id> --by user --why "..." | --clear
 python3 -m harness ceremony plan|triage|review|retro [--sprint S] [--write]
 python3 -m harness state | target show|set <stock> <n> --by user --why "..." | escalate ...
 python3 -m harness session open|draft|close --slug S   python3 -m harness journal tail|observe
-python3 -m harness ports | env | rag health|config|update
+python3 -m harness ports | env | rag health|config|update|link
 python3 -m harness stack status|start|stop|up [--stack rag|board] [--gpu]
 python3 -m harness dashboard build-db|serve|static -o board.html
 ```

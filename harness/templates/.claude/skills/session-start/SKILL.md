@@ -34,6 +34,10 @@ What each line of the brief means:
 - `RAG: BROKEN` — this session searches blind. Say so in the first line of your brief.
   Every claim about call sites then comes from grep, and grep misses the literal
   string form and the DOM form of an event. Do not fix the RAG on your own. Report it.
+- `MCP: the index started N after this agent` — the containers run, and this session
+  still holds no `mcp__qmd__*` tool. Claude Code opens an MCP connection once, when
+  its process starts, and it never retries. Say so in the first line of your brief,
+  and search with grep. The user restarts Claude Code and leaves the containers up.
 - `RAG: warnings` — one line in the brief.
 - `RAG: OK` — do not mention it. A canary that sings always is not read.
 - `STALE` on the last session — the claims of that document are premises to check,

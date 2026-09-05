@@ -189,7 +189,8 @@ def _rag(root):
             ["", "python3 -m harness env          derive .harness/env.local"],
             ["", "python3 -m harness ports        every port must be free"],
             ["", "./infra/rag/up.sh               start it. --gpu for CUDA."],
-            ["", "python3 -m harness rag health   OK · warnings · BROKEN"]]},
+            ["", "python3 -m harness rag health   OK · warnings · BROKEN"],
+            ["", "python3 -m harness rag link     did the index start after this agent?"]]},
         {"heading": "THE MOUNT IS READ ONLY", "items": [
             ["", "The stack mounts the repository read only. infra/rag/README.md"],
             ["", "holds the command that proves it."]]},
