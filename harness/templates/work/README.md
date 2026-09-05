@@ -68,6 +68,21 @@ the eye of the user, not agent hours. The source project saw its verdict queue r
 that counts only effort lets an agent stack work that nobody can check. This one
 cannot: `done` refuses an eye task without `--verdict`.
 
+## An epic id repeats across sprints
+
+Every sprint numbers its epics from `EP-01`. The id is unique inside its sprint and
+not across sprints. When two sprints hold an `EP-01`, `assign --epic EP-01` names both
+and stops. Pass the folder name instead:
+
+```bash
+python3 -m harness assign TASK-0007 --epic epic-01-the-login-form
+```
+
+The tool never picks the first match. Source: on 2026-09-05 this repository opened its
+second sprint, and `move` used the first match to choose the epic sheet that receives a
+verdict. A task closed in sprint-001 wrote the user's words into the sheet of
+sprint-000. `check` stayed green, because the shape of the tree was correct.
+
 ## Three more fields
 
 | field | values | meaning |

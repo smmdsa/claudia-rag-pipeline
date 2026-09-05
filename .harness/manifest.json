@@ -82,7 +82,7 @@
     "CLAUDE.md": {
       "kind": "owned",
       "template": "CLAUDE.md",
-      "sha256": "da7e4a0b130a0fe01211c89e7226bb8401bbb46122ed6af4073ead22a7450d89"
+      "sha256": "bead2d5bb97dbba7daf9ed2bb23306091b8914683466c01d75f1ae9af58b6b6e"
     },
     "docs/ACTIVITY.md": {
       "kind": "seeded",
@@ -158,7 +158,7 @@
     "work/README.md": {
       "kind": "owned",
       "template": "work/README.md",
-      "sha256": "96544613721ca00c238c3d457eff237279b7584dc4dfdbebaf5111a72053f91b"
+      "sha256": "2b78a5aa29900e633cbf3279d4b7ff185fd3aeeaa931ca51be7c2d9db7efcd9f"
     },
     "work/ROADMAP.md": {
       "kind": "seeded",

@@ -97,7 +97,8 @@ python3 -m harness init | doctor | upgrade | uninstall | adopt <f> | restore <f>
 python3 -m harness profile show|set k=v|ask        python3 -m harness skills generate
 python3 -m harness board | next | list | show <id> | check | clock
 python3 -m harness start <id> | done <id> [--verdict "..." --by user] | back <id>
-python3 -m harness new task|epic|sprint --title ...  python3 -m harness assign <id> --epic EP-NN
+python3 -m harness new task|epic|sprint --title ... [--id sprint-NNN]
+python3 -m harness assign <id> --epic EP-NN | <epic folder name>
 python3 -m harness priority <id> --by user --why "..." | --clear
 python3 -m harness ceremony plan|triage|review|retro [--sprint S] [--write]
 python3 -m harness state | target show|set <stock> <n> --by user --why "..." | escalate ...

@@ -14,6 +14,11 @@ board.html
 # the checksums that prove that this repository still hosts itself.
 work/sprints/*
 !work/sprints/.gitkeep
+# sprint-000 is the exception, and it ships. It is the setup sprint of this
+# repository, and it is the only worked example of a real sprint that a reader can
+# open: a sprint sheet, an epic sheet, and one task in a state folder. Every later
+# sprint is the work that we do with the harness, and it stays local.
+!work/sprints/sprint-000/
 work/backlog/TASK-*.md
 work/ROADMAP.md
 docs/sessions/*.md

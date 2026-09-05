@@ -45,6 +45,22 @@ not whether one does. Baseline: 106 tests, 0 red. After the last restore: 106 te
 | M31 | `harness/stack.py` | status calls docker before it reads the compose file | 1 — `StackTest.test_a_missing_compose_file_reports_and_never_calls_docker` |
 | M32 | `harness/session.py` | session open starts the stack whatever the canary says | 1 — `SessionStackTest.test_a_green_canary_never_calls_docker` |
 | M33 | `harness/session.py` | session open ignores --no-stack | 1 — `SessionStackTest.test_no_stack_never_calls_docker` |
+| M34 | `harness/board.py` | find_epic returns the first match and never reports the ambiguity | 1 — `EpicIdTest.test_a_repeated_epic_id_names_every_candidate` |
+| M35 | `harness/board.py` | the verdict lookup ignores the sprint of the task | 1 — `EpicIdTest.test_a_verdict_lands_in_the_sheet_of_its_own_sprint` |
+| M36 | `harness/board.py` | new sprint accepts any id, whatever its shape | 1 — `EpicIdTest.test_new_sprint_refuses_an_id_that_is_not_sprint_nnn` |
+| M37 | `harness/board.py` | new sprint overwrites a sprint that exists | 1 — `EpicIdTest.test_new_sprint_refuses_an_id_that_exists` |
+
+M34 to M37 ran on 2026-09-05, after the second sprint of this repository exposed the
+defect. Baseline 147 tests, 0 red. After the restore: 147 tests, 0 red.
+
+M35 is the defect that the board found by running. Every sprint numbers its epics from
+EP-01, so sprint-000 and sprint-001 both held an `EP-01`. `find_epic` walked the
+sprints in order and returned the first match. `move` used it to pick the epic sheet
+that receives a verdict, so closing a task in sprint-001 wrote the user's words into
+the epic sheet of sprint-000. `check` stayed green: the shape of the tree was correct,
+and the words were in the wrong file. This is the same shape as issue #1, which the
+adopter found on 2026-09-05: a verdict that lands in the wrong place, under a test that
+asserts only that the string is present.
 
 M29 to M33 ran on 2026-09-05 for the stack repair that `session open` runs. Baseline
 141 tests, 0 red. After the restore: 141 tests, 0 red. The suite needs no daemon: every

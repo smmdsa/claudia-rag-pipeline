@@ -96,6 +96,7 @@ def build_parser():
     sp.add_argument("--starts", help="sprint: YYYY-MM-DD")
     sp.add_argument("--ends", help="sprint: YYYY-MM-DD")
     sp.add_argument("--goal", default="")
+    sp.add_argument("--id", help="sprint: the id, as sprint-NNN. Without it the tool counts up from the last sprint.")
 
     sp = add("ceremony", "plan, triage, review, or retro: a document with an agenda and open questions")
     sp.add_argument("name", choices=list(ceremonies.CEREMONIES))
@@ -277,7 +278,7 @@ def run(args):
         else:
             if not (args.starts and args.ends):
                 raise HarnessError("a sprint needs --starts and --ends (YYYY-MM-DD).")
-            r = board.new_sprint(root, tree, args.title, args.starts, args.ends, goal=args.goal)
+            r = board.new_sprint(root, tree, args.title, args.starts, args.ends, goal=args.goal, sprint_id=args.id)
             emit(r, js, lambda r: "%s created at %s" % (r["id"], r["path"]))
         return 0
 
