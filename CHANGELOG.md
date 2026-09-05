@@ -8,6 +8,55 @@ every owned file that you did not edit, it keeps every file that you did edit, a
 records the new version in `.harness/manifest.json`. Run `python3 -m harness doctor`
 after an upgrade. It exits 0 when the install is sound.
 
+## Unreleased
+
+The verdict lands under its own header, the board page stops showing an old reading,
+and the brief stops calling a dead search link a warning. The README now says what it
+always meant: you talk to your agent, and the agent runs the harness.
+
+### Added
+
+- **`python3 -m harness rag link`** and `harness/mcp.py` — the link between this agent
+  and the index. Claude Code opens every MCP connection once, when its process starts,
+  and it never retries. A container that starts later answers on its port and stays
+  invisible to the agent for the whole session. Measured on 2026-09-05: the agent
+  started at 13:48:04 and the `rag` container at 16:51:11. The canary printed
+  `warnings`, and the agent held no search tool for three hours. `session open` now
+  prints one `MCP:` line and names the fix: leave the containers up and restart Claude
+  Code. It exits 1 when the link is stale.
+
+  The module reads an ELAPSED time and never an absolute one. `/proc/stat` holds a
+  `btime` that drifts with each clock correction: two `ps` calls 40 seconds apart
+  reported start times 44 seconds apart on the same process. The agent and the
+  container are now read against the same wall clock. M42 guards it.
+
+  The check costs no docker call when no Claude Code process is a parent of the
+  command, so a script and a CI run pay nothing. It costs 0.25 s inside a session.
+
+### Fixed
+
+- **The board page answered from a reading up to 5 minutes old.** The user closed a
+  task at 17:33 on 2026-09-05 and read TODO on the page. The tree held the task in
+  `done/`. `infra/board/Dockerfile` runs `dashboard serve --rebuild-every 300`, so the
+  cache was rebuilt on a timer and never on a change. Design law 1: the board is
+  computed, never stored. `dashboard.refresh` now rebuilds the cache before `/` and
+  `/api/board` answer, and only when the tree changed.
+
+  The first design compared mtimes, and its own test proved it wrong: a `done` that ran
+  right after a cache build produced a folder mtime EQUAL to the cache mtime, to the
+  microsecond (1788640706.1824226 for both). `dashboard.tree_fingerprint` replaced it.
+  It hashes every task path with its size and its time. The PATH carries the state, so
+  a move changes the hash whatever the clock does. M43 guards it.
+
+- **A verdict on an epic sheet landed under `## Out of scope`.** `harness/board.py`
+  `_append_section` checked that the header exists, then appended to the end of the
+  FILE. `work/templates/epic.md` holds `## Verdicts` above `## Out of scope`, so every
+  epic verdict landed under the wrong header. The section now ends at the next `## `
+  line, and a deeper header such as `### 2026` stays inside the section.
+  `tests/test_board.py` asserted presence and never position, so the suite stayed green
+  with the defect inside (law 9). Four tests now assert the position, and M40 turns all
+  four red. This is issue 1, reported from macOS with Python 3.14.6.
+
 ## 0.2.0 — 2026-09-05
 
 The adopter reads a map on the first run, the session repairs its own stack, and a
