@@ -12,6 +12,7 @@ third-party code, and a lockfile pins that code.
 ├── harness/                    the Python package. Copy this directory to install.
 │   ├── __main__.py             `python3 -m harness <command>`
 │   ├── cli.py                  the command table
+│   ├── help.py                 the adopter's map: `help [topic]`
 │   ├── manifest.py             .harness/manifest.json, checksums, doctor
 │   ├── scaffold.py             init, upgrade, uninstall, adopt, restore
 │   ├── frontmatter.py          the front matter reader and writer
@@ -22,6 +23,7 @@ third-party code, and a lockfile pins that code.
 │   ├── journal.py              .harness/journal.jsonl
 │   ├── session.py              session open and session close
 │   ├── ports.py                port checks
+│   ├── stack.py                the Docker stacks: report, start, stop
 │   ├── env.py                  the derived machine environment file
 │   ├── profile.py              the project profile and the skill generator
 │   ├── hooks.py                the hook entry points

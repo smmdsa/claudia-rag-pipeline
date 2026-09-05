@@ -16,11 +16,36 @@ DEFAULTS = {
 }
 
 
-def port_for(var):
+def env_file_port(var, root=None):
+    """The port that `.harness/env.local` declares, or None.
+
+    `harness/env.py` imports this module, so the import sits inside the call. One
+    parser reads the file, and it lives in `env.read` (law 2).
+    """
+    from harness import env  # late: env imports DEFAULTS from this module
+    try:
+        raw = env.read(root or os.getcwd()).get(var)
+    except OSError:
+        return None
+    return int(raw) if raw and raw.isdigit() else None
+
+
+def port_for(var, root=None):
+    """The port for one variable. The shell wins, then `.harness/env.local`, then the default.
+
+    `harness/stack.py` runs `docker compose --env-file .harness/env.local`, and compose
+    gives the shell precedence over that file. This function follows the same order, so
+    the checker measures the port that the stack really publishes (law 11).
+
+    Before this, `port_for` read the shell alone. A port that the user overrode in the
+    file was invisible: `harness ports` checked 8410 while docker published 9410. The
+    two agreed only while the override matched the default (law 3).
+    """
     raw = os.environ.get(var)
     if raw and raw.isdigit():
         return int(raw)
-    return DEFAULTS[var][0]
+    found = env_file_port(var, root)
+    return DEFAULTS[var][0] if found is None else found
 
 
 def is_free(port, host="127.0.0.1"):
@@ -55,10 +80,10 @@ def holder(port):
     return "not measured (no ss and no lsof)", False
 
 
-def check_ports(vars_=None):
+def check_ports(vars_=None, root=None):
     rows = []
     for var in vars_ or DEFAULTS:
-        port = port_for(var)
+        port = port_for(var, root)
         free = is_free(port)
         row = {"variable": var, "port": port, "service": DEFAULTS[var][1], "free": free,
                "default": DEFAULTS[var][0], "holder": None}

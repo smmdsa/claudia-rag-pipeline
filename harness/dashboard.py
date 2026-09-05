@@ -17,7 +17,7 @@ from harness import VERSION, state
 from harness.board import all_tasks, scan
 from harness.clock import days_remaining, sprint_status
 from harness.ports import is_free, port_for
-from harness.util import HarnessError, now, now_iso, read_text, today
+from harness.util import HarnessError, now, now_iso, read_text, sha256_text, today
 
 DB = os.path.join(".harness", "board.sqlite")
 TEMPLATE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dashboard.html")
@@ -42,6 +42,72 @@ def db_path(root):
     return os.path.join(root, DB)
 
 
+def tree_fingerprint(root):
+    """A hash of every task path under `work/`, with its size and its time.
+
+    An mtime comparison cannot see a move. Measured on 2026-09-05: a `done` that ran
+    right after a cache build produced a folder mtime equal to the cache mtime, to the
+    microsecond, so the move stayed invisible. The PATH carries the state (law 1), so
+    the fingerprint reads the paths and never the clock alone.
+    """
+    rows = []
+    base = os.path.join(root, "work")
+    if not os.path.isdir(base):
+        return ""
+    for path, dirs, files in os.walk(base):
+        dirs[:] = sorted(d for d in dirs if not d.startswith("."))
+        for name in sorted(files):
+            if not name.endswith(".md"):
+                continue
+            full = os.path.join(path, name)
+            try:
+                st = os.stat(full)
+            except OSError:
+                continue
+            rows.append("%s\0%d\0%d" % (os.path.relpath(full, base).replace(os.sep, "/"),
+                                         st.st_size, int(st.st_mtime_ns)))
+    return sha256_text("\n".join(sorted(rows)))
+
+
+def cached_fingerprint(path):
+    """The fingerprint that `build_db` stored. Return None when it cannot be read."""
+    if not os.path.exists(path):
+        return None
+    try:
+        con = sqlite3.connect("file:%s?mode=ro" % path, uri=True)
+        try:
+            row = con.execute("SELECT value FROM meta WHERE key = 'tree_fingerprint'").fetchone()
+        finally:
+            con.close()
+    except sqlite3.Error:
+        return None
+    return row[0] if row else None
+
+
+def is_stale(root, path=None):
+    """Did the tree change after the cache was written? A missing cache is stale."""
+    path = path or db_path(root)
+    stored = cached_fingerprint(path)
+    return stored is None or stored != tree_fingerprint(root)
+
+
+def refresh(root, path=None):
+    """Rebuild the cache when the tree changed. Keep the old cache on an error.
+
+    Design law 1: the folder tree is the truth, and the board is computed. A page that
+    answers from an old reading is a stored board, and it contradicts the tree.
+    """
+    path = path or db_path(root)
+    if not is_stale(root, path):
+        return False
+    try:
+        build_db(root, path)
+        return True
+    except Exception as exc:  # the page must answer, so the old cache stays
+        print("dashboard: rebuild failed, serving the old cache: %s" % exc, flush=True)
+        return False
+
+
 def build_db(root, path=None):
     path = path or db_path(root)
     tree = scan(root)
@@ -55,6 +121,7 @@ def build_db(root, path=None):
     con.execute("INSERT INTO meta VALUES ('harness_version', ?)", (VERSION,))
     con.execute("INSERT INTO meta VALUES ('root', ?)", (root,))
     con.execute("INSERT INTO meta VALUES ('note', 'cache of the folder tree. The tree is the truth.')")
+    con.execute("INSERT INTO meta VALUES ('tree_fingerprint', ?)", (tree_fingerprint(root),))
     for sp in tree.sprints:
         con.execute("INSERT INTO sprints VALUES (?,?,?,?,?,?,?)",
                     (sp.id, sp.title, sp.starts or None, sp.ends or None, sprint_status(sp), days_remaining(sp), sp.order))
@@ -118,8 +185,10 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == "/health":
                 self._send(json.dumps({"status": "ok", "db": os.path.exists(self.db)}), "application/json")
             elif self.path == "/api/board":
+                refresh(self.root, self.db)
                 self._send(json.dumps(read_db(self.db), ensure_ascii=False), "application/json")
             elif self.path == "/":
+                refresh(self.root, self.db)
                 self._send(render_html(read_db(self.db)))
             else:
                 self._send("not found", "text/plain", 404)
@@ -138,7 +207,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def serve(root, port=None, host="127.0.0.1", rebuild_every=0, db=None, once=False):
-    port = port or port_for("HARNESS_BOARD_PORT")
+    port = port or port_for("HARNESS_BOARD_PORT", root)
     db = db or db_path(root)
     if not is_free(port, host):
         raise HarnessError("port %d is taken. Override it with HARNESS_BOARD_PORT=<port>. Run `python3 -m harness ports`." % port)

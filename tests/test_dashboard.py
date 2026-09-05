@@ -1,6 +1,7 @@
 """The board page: the SQLite cache, the static page, the server.
 
-Mutation proof (docs/MUTATION.md): M14 (unmeasured age stored as 0) 1 red; M04 (days off by one) 1 red here.
+Mutation proof (docs/MUTATION.md): M14 (unmeasured age stored as 0) 1 red; M04 (days off by one) 1 red here;
+M43 (the cache is never stale) 2 red.
 """
 import json
 import os
@@ -66,6 +67,52 @@ class DashboardTest(unittest.TestCase):
         data = json.loads(body)
         self.assertEqual(len(data["tasks"]), 3)
         self.assertEqual(data["sprints"][0]["days_remaining"], 9)
+
+    def test_a_move_makes_the_cache_stale(self):
+        dashboard.build_db(self.root)
+        db = dashboard.db_path(self.root)
+        self.assertFalse(dashboard.is_stale(self.root, db))
+        tree = board.scan(self.root)
+        board.move(self.root, tree, self.ids["t2"], "done", verdict="seen", by="user")
+        self.assertTrue(dashboard.is_stale(self.root, db))
+
+    def test_a_missing_cache_is_stale(self):
+        self.assertTrue(dashboard.is_stale(self.root, os.path.join(self.root, "nothing.sqlite")))
+
+    def test_the_page_reads_a_move_with_no_wait(self):
+        """The tree is the truth. The page must never answer from an old reading."""
+        port = 18512
+        while not is_free(port):
+            port += 1
+        threading.Thread(target=dashboard.serve,
+                         kwargs={"root": self.root, "port": port, "once": False},
+                         daemon=True).start()
+        for _ in range(50):
+            try:
+                urllib.request.urlopen("http://127.0.0.1:%d/health" % port, timeout=2).read()
+                break
+            except OSError:
+                import time
+                time.sleep(0.1)
+        tree = board.scan(self.root)
+        board.move(self.root, tree, self.ids["t2"], "done", verdict="seen", by="user")
+        body = urllib.request.urlopen("http://127.0.0.1:%d/api/board" % port, timeout=5).read()
+        states = {t["id"]: t["state"] for t in json.loads(body)["tasks"]}
+        self.assertEqual(states[self.ids["t2"]], "done")
+
+    def test_an_unchanged_tree_runs_no_rebuild(self):
+        """A rebuild on every request would read the whole tree for every reader."""
+        db = dashboard.db_path(self.root)
+        dashboard.build_db(self.root, db)
+        calls = []
+        real = dashboard.build_db
+        dashboard.build_db = lambda *a, **k: calls.append(1)
+        try:
+            dashboard.refresh(self.root, db)
+            dashboard.refresh(self.root, db)
+        finally:
+            dashboard.build_db = real
+        self.assertEqual(calls, [])
 
 
 if __name__ == "__main__":

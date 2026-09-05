@@ -202,12 +202,32 @@ def find(tree, task_id):
     return None
 
 
-def find_epic(tree, epic_id):
+def find_epic(tree, epic_id, sprint=None):
+    """Find one epic. `sprint` limits the search to one sprint.
+
+    An epic id is unique inside its sprint, and not across sprints: every sprint
+    starts at EP-01. Without `sprint`, two sprints answer to the same id, and this
+    function raises and names every candidate. It never picks the first one. A caller
+    that already knows the sprint of a task must pass it: a silent first match writes
+    the verdict of one sprint into the epic sheet of another.
+
+    The folder name always identifies one epic.
+    """
+    hits = []
     for sp in tree.sprints:
+        if sprint and sp.id != sprint and sp.dir != sprint:
+            continue
         for e in sp.epics:
             if e.id.upper() == str(epic_id).upper() or e.dir == epic_id:
-                return sp, e
-    return None, None
+                hits.append((sp, e))
+    if not hits:
+        return None, None
+    if len(hits) > 1:
+        raise HarnessError(
+            "%s names %d epics, one per sprint: %s. An epic id repeats across sprints. "
+            "Pass the folder name instead." % (
+                epic_id, len(hits), ", ".join("%s/%s" % (sp.id, e.dir) for sp, e in hits)))
+    return hits[0]
 
 
 def find_sprint(tree, sprint_id):
@@ -509,12 +529,23 @@ def _git_mv(root, src, dst):
 
 
 def _append_section(path, header, line):
+    """Write the line at the end of the SECTION, and never at the end of the file.
+
+    A sheet holds `## Verdicts` above `## Out of scope`. The end of the file is not the
+    end of the section, so an append to the file writes the verdict under the wrong
+    header. The section ends at the next `## ` line, or at the end of the text.
+    A deeper header, such as `### 2026`, belongs to the section and never ends it.
+    """
     text = read_text(path) if os.path.exists(path) else ""
-    if re.search(r"^%s\s*$" % re.escape(header), text, re.M):
-        text = text.rstrip("\n") + "\n" + line + "\n"
-    else:
-        text = text.rstrip("\n") + "\n\n" + header + "\n\n" + line + "\n"
-    write_text(path, text)
+    found = re.search(r"^%s\s*$" % re.escape(header), text, re.M)
+    if found is None:
+        write_text(path, text.rstrip("\n") + "\n\n" + header + "\n\n" + line + "\n")
+        return
+    after = re.search(r"^## ", text[found.end():], re.M)
+    cut = found.end() + after.start() if after else len(text)
+    head = text[:cut].rstrip("\n") + "\n" + line + "\n"
+    tail = text[cut:]
+    write_text(path, head + "\n" + tail if tail else head)
 
 
 def move(root, tree, task_id, to, verdict=None, by=None):
@@ -542,7 +573,7 @@ def move(root, tree, task_id, to, verdict=None, by=None):
                 "Pass the user's words: --verdict \"<words>\" --by user. Compiling green is not working."
                 % (t.id, t.eye))
         _append_section(t.path, "## Verdict", "- %s · by %s · \"%s\"" % (today().isoformat(), by or "user", verdict))
-        _, ep = find_epic(tree, t.epic)
+        _, ep = find_epic(tree, t.epic, sprint=t.sprint)
         if ep and os.path.exists(ep.sheet):
             _append_section(ep.sheet, "## Verdicts", "- %s · %s · \"%s\"" % (today().isoformat(), t.id, verdict))
     dst = os.path.join(os.path.dirname(os.path.dirname(t.path)), to, os.path.basename(t.path))
@@ -624,6 +655,9 @@ def next_epic_dir(sprint):
     return top + 1
 
 
+SPRINT_ID = re.compile(r"^sprint-\d{3}$")
+
+
 def next_sprint_dir(tree):
     top = max([sp.order for sp in tree.sprints] + [0])
     return "sprint-%03d" % (top + 1)
@@ -694,12 +728,25 @@ def new_epic(root, tree, sprint_id, title, work="M", eye="GLANCE"):
     return {"id": epic_id, "path": rel(root, sheet)}
 
 
-def new_sprint(root, tree, title, starts, ends, goal=""):
+def new_sprint(root, tree, title, starts, ends, goal="", sprint_id=None):
+    """Create a sprint. Without `sprint_id` the tool numbers it after the last one.
+
+    `sprint_id` names a sprint that the counter cannot reach. `next_sprint_dir` counts
+    up from the highest sprint, so it never writes `sprint-000`. A repository that
+    wants a sprint zero for its setup needs the name, not the count.
+    """
     if parse_date(starts) is None or parse_date(ends) is None:
         raise HarnessError("starts and ends must be YYYY-MM-DD dates.")
     if parse_date(ends) < parse_date(starts):
         raise HarnessError("ends %s is before starts %s." % (ends, starts))
-    sd = next_sprint_dir(tree)
+    if sprint_id is None:
+        sd = next_sprint_dir(tree)
+    else:
+        sd = sprint_id.strip()
+        if not SPRINT_ID.match(sd):
+            raise HarnessError("the sprint id is %r. Use sprint-NNN, three digits." % sprint_id)
+        if any(sp.id == sd for sp in tree.sprints):
+            raise HarnessError("%s already exists at %s. Pick another id." % (sd, rel(root, os.path.join(work_dir(root), "sprints", sd))))
     sdir = os.path.join(work_dir(root), "sprints", sd)
     fields = {"id": sd, "title": title, "starts": starts, "ends": ends}
     _, body = fm.parse(template_text(root, "sprint"))

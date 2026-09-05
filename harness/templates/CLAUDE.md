@@ -54,6 +54,9 @@ Use the left column. Never use the right column.
 | work | effort, story points, complexity |
 | eye | QA time, review time, human check |
 | size | estimate, points |
+| help | onboarding, tour, guide, walkthrough |
+| note | comment, annotation, remark, log entry |
+| modal | dialog, popup, lightbox, overlay |
 
 Add a row when you choose a new term. Do not remove rows.
 
@@ -91,16 +94,19 @@ records each one with the measured failure that produced it. The short form:
 ## Command reference
 
 ```text
+python3 -m harness help [board|eye|skills|rag]    the adopter's map
 python3 -m harness init | doctor | upgrade | uninstall | adopt <f> | restore <f>
 python3 -m harness profile show|set k=v|ask        python3 -m harness skills generate
 python3 -m harness board | next | list | show <id> | check | clock
 python3 -m harness start <id> | done <id> [--verdict "..." --by user] | back <id>
-python3 -m harness new task|epic|sprint --title ...  python3 -m harness assign <id> --epic EP-NN
+python3 -m harness new task|epic|sprint --title ... [--id sprint-NNN]
+python3 -m harness assign <id> --epic EP-NN | <epic folder name>
 python3 -m harness priority <id> --by user --why "..." | --clear
 python3 -m harness ceremony plan|triage|review|retro [--sprint S] [--write]
 python3 -m harness state | target show|set <stock> <n> --by user --why "..." | escalate ...
 python3 -m harness session open|draft|close --slug S   python3 -m harness journal tail|observe
-python3 -m harness ports | env | rag health|config|update
+python3 -m harness ports | env | rag health|config|update|link
+python3 -m harness stack status|start|stop|up [--stack rag|board] [--gpu]
 python3 -m harness dashboard build-db|serve|static -o board.html
 ```
 

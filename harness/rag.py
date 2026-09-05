@@ -20,12 +20,12 @@ CONFIG = os.path.join("infra", "rag", "config", "index.yml")
 ORPHAN_WARN_PCT = 20
 
 
-def state_url():
-    return os.environ.get("HARNESS_RAG_STATE_URL") or "http://127.0.0.1:%d" % port_for("HARNESS_RAG_STATE_PORT")
+def state_url(root=None):
+    return os.environ.get("HARNESS_RAG_STATE_URL") or "http://127.0.0.1:%d" % port_for("HARNESS_RAG_STATE_PORT", root)
 
 
-def mcp_url():
-    return os.environ.get("HARNESS_RAG_MCP_URL") or "http://127.0.0.1:%d" % port_for("HARNESS_RAG_PORT")
+def mcp_url(root=None):
+    return os.environ.get("HARNESS_RAG_MCP_URL") or "http://127.0.0.1:%d" % port_for("HARNESS_RAG_PORT", root)
 
 
 def http_json(url, method="GET", timeout=4):
@@ -49,8 +49,8 @@ def request_update(root=None, url=None):
 
 
 def health(root=None, url=None, mcp=None):
-    url = url or state_url()
-    mcp = mcp or mcp_url()
+    url = url or state_url(root)
+    mcp = mcp or mcp_url(root)
     report = {"level": "ok", "problems": [], "warnings": [], "collections": [], "index": {}, "state_url": url}
 
     def broken(msg):

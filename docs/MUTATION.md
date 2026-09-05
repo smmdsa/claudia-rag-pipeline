@@ -29,6 +29,88 @@ not whether one does. Baseline: 106 tests, 0 red. After the last restore: 106 te
 | M15 | `harness/board.py` | check accepts any work size | 1 — `BoardTest.test_check_finds_shape_errors` |
 | M16 | `harness/board.py` | check ignores a priority with no provenance | 1 — `BoardTest.test_priority_without_provenance_turns_check_red` |
 | M17 | `harness/hooks.py` | the pre-write hook never sees a priority line | 1 — `HookTest.test_pre_write_denies_priority_by_hand` |
+| M18 | `harness/help.py` | help skills prints a fixed list and never reads the tree | 1 — `HelpTest.test_skills_are_read_from_the_tree_not_from_a_list` |
+| M19 | `harness/help.py` | an unknown help topic returns the overview instead of an error | 1 — `HelpTest.test_unknown_topic_exits_1_and_names_every_topic` |
+| M20 | `harness/help.py` | help names a path without a check that the path exists | 1 — `HelpTest.test_help_runs_before_init_and_marks_the_missing_paths` |
+| M21 | `harness/scaffold.py` | the manifest records the adopter's first task | 3 — `SeedTaskTest.test_init_writes_the_first_task_and_the_manifest_ignores_it`, `SeedTaskTest.test_doctor_stays_sound_after_the_first_task_moves`, `ScaffoldTest.test_cli_profile_and_doctor` |
+| M22 | `harness/scaffold.py` | init writes the first task again after the adopter moves it | 1 — `SeedTaskTest.test_init_never_writes_the_first_task_twice` |
+| M23 | `harness/help.py` | help eye hard-codes the eye values | 1 — `HelpTest.test_eye_topic_follows_harness_board_eye` |
+| M24 | `harness/help.py` | help board hard-codes the states | 1 — `HelpTest.test_board_topic_follows_harness_board_states` |
+| M25 | `harness/manifest.py` | only_missing_seeded accepts any problem, whatever its kind | 2 — `ReseedTest.test_a_damaged_owned_file_is_never_only_missing_seeded`, `ReseedTest.test_session_open_never_hides_a_damaged_owned_file` |
+| M26 | `harness/manifest.py` | doctor never marks the kind of a missing file | 2 — `ReseedTest.test_doctor_marks_a_missing_seeded_file`, `ReseedTest.test_session_open_writes_the_missing_seeded_files_again` |
+| M27 | `harness/session.py` | session open ignores a repository that keeps its board out of git | 1 — `ReseedTest.test_session_open_writes_the_missing_seeded_files_again` |
+| M28 | `harness/scaffold.py` | init rewrites settings.json when no key changed | 1 — `ReseedTest.test_reseed_leaves_a_compact_settings_file_alone` |
+| M29 | `harness/stack.py` | start builds the image instead of starting the container | 2 — `StackTest.test_start_never_builds`, `StackTest.test_start_reports_what_it_started` |
+| M30 | `harness/stack.py` | start builds a container that does not exist | 1 — `StackTest.test_start_refuses_to_build_a_container_that_does_not_exist` |
+| M31 | `harness/stack.py` | status calls docker before it reads the compose file | 1 — `StackTest.test_a_missing_compose_file_reports_and_never_calls_docker` |
+| M32 | `harness/session.py` | session open starts the stack whatever the canary says | 1 — `SessionStackTest.test_a_green_canary_never_calls_docker` |
+| M33 | `harness/session.py` | session open ignores --no-stack | 1 — `SessionStackTest.test_no_stack_never_calls_docker` |
+| M34 | `harness/board.py` | find_epic returns the first match and never reports the ambiguity | 1 — `EpicIdTest.test_a_repeated_epic_id_names_every_candidate` |
+| M35 | `harness/board.py` | the verdict lookup ignores the sprint of the task | 1 — `EpicIdTest.test_a_verdict_lands_in_the_sheet_of_its_own_sprint` |
+| M36 | `harness/board.py` | new sprint accepts any id, whatever its shape | 1 — `EpicIdTest.test_new_sprint_refuses_an_id_that_is_not_sprint_nnn` |
+| M37 | `harness/board.py` | new sprint overwrites a sprint that exists | 1 — `EpicIdTest.test_new_sprint_refuses_an_id_that_exists` |
+| M38 | `harness/stack.py` | the port check ignores who holds the port | 1 — `PortTest.test_a_port_that_this_stack_holds_is_not_a_conflict` |
+| M39 | `harness/stack.py` | a stopped container still claims its published port | 1 — `PortTest.test_a_stopped_container_does_not_hold_its_port` |
+| M40 | `harness/board.py` | _append_section writes at the end of the file, and never at the end of the section | 4 — `BoardTest.test_append_section_writes_inside_a_section_in_the_middle`, `BoardTest.test_append_section_accumulates_in_order`, `BoardTest.test_append_section_keeps_a_deeper_header_inside_the_section`, `BoardTest.test_done_writes_the_epic_verdict_under_its_own_header` |
+| M41 | `harness/mcp.py` | an index that started after the agent still reads as a live link | 1 — `LinkTest.test_an_index_that_started_later_is_stale` |
+| M42 | `harness/mcp.py` | the elapsed time of the client is read as an absolute time | 1 — `AncestorTest.test_finds_the_client_above_the_shell` |
+| M43 | `harness/dashboard.py` | the cache is never stale, so the page answers from an old reading | 2 — `DashboardTest.test_a_move_makes_the_cache_stale`, `DashboardTest.test_the_page_reads_a_move_with_no_wait` |
+| M44 | `harness/ports.py` | port_for ignores the env file that docker compose reads | 2 — `PortsTest.test_port_for_reads_the_env_file_that_docker_compose_reads`, `PortsTest.test_stack_ports_check_the_port_that_docker_publishes` |
+
+M38 and M39 ran on 2026-09-05, after `./infra/rag/up.sh` refused to run on a stack that
+was already up. Baseline 151 tests, 0 red. After the restore: 151 tests, 0 red.
+`harness ports` binds a port to test it, so it cannot name the holder. The script told
+the user to override a port that nothing else wanted.
+
+M34 to M37 ran on 2026-09-05, after the second sprint of this repository exposed the
+defect. Baseline 147 tests, 0 red. After the restore: 147 tests, 0 red.
+
+M35 is the defect that the board found by running. Every sprint numbers its epics from
+EP-01, so sprint-000 and sprint-001 both held an `EP-01`. `find_epic` walked the
+sprints in order and returned the first match. `move` used it to pick the epic sheet
+that receives a verdict, so closing a task in sprint-001 wrote the user's words into
+the epic sheet of sprint-000. `check` stayed green: the shape of the tree was correct,
+and the words were in the wrong file. This is the same shape as issue #1, which the
+adopter found on 2026-09-05: a verdict that lands in the wrong place, under a test that
+asserts only that the string is present.
+
+M29 to M33 ran on 2026-09-05 for the stack repair that `session open` runs. Baseline
+141 tests, 0 red. After the restore: 141 tests, 0 red. The suite needs no daemon: every
+test replaces `harness.stack.sh` and measures the commands that the module builds.
+
+`StackTest.test_an_unknown_stack_name_is_an_error` turned red once for real on
+2026-09-05, with no mutation. `status` read `STACKS[name]` to build its report before
+`compose_file` checked the name, so an unknown stack raised `KeyError` and not the
+error text that names the two stacks. Rule 11 of the writing rules: an error says what
+happened, why, and what to do next. A `KeyError` says none of the three.
+
+M18 to M24 ran on 2026-09-05 for the `help` command and the seeded first task.
+Baseline 123 tests, 0 red. After the restore: 123 tests, 0 red.
+
+M28 records a defect that the reseed exposed. `_merge_hooks` wrote
+`.claude/settings.json` on every `init`, and `json.dumps` expands a compact array. A
+fresh clone ran `session open`, the reseed ran `init`, and `git status` reported a diff
+that nobody made. The function now writes the file only when a key changes (law 12).
+
+M25 to M27 ran on 2026-09-05 for the reseed that `session open` runs. This repository
+keeps its own board out of git, so a clone lacks every seeded file. Baseline 130 tests,
+0 red. After the restore: 130 tests, 0 red. M25 is the guard that matters: a reseed that
+fires on any damage hides a wrong checksum behind a file that `init` writes again.
+
+`HelpTest.test_overview_names_no_path_that_init_does_not_create` turned red once for
+real on 2026-09-05, with no mutation. `help` named `docs/DESIGN-LAWS.md` and offered
+`init` as the fix. `init` never installs that file: the twelve laws travel to the
+adopter in short form inside `CLAUDE.md`, and the full record stays in the harness
+repository. This repository holds `docs/DESIGN-LAWS.md`, so the path existed here and
+the text looked correct. Law 3 names this trap. The test runs on a fresh repository,
+so it measured what this repository hides. The `help` text now states where the full
+record lives, and it offers no fix that `init` cannot deliver.
+
+M23 and M24 exist because the first version of the two topic tests was weak. That
+version asserted that the output holds `NONE`, `GLANCE`, and `RUN`. A hard-coded copy
+of the same three words passed it. The test now patches `harness.board.EYE` and
+`harness.board.STATES` with a probe value, so it measures the coupling and not the
+words. Law 9 names this trap: a green test can guard a bug.
 
 M16 and M17 ran on 2026-09-04 after the user chose enforcement for `priority`
 (proposal P17). Baseline 110 tests, 0 red. After the restore: 110 tests, 0 red.
@@ -48,6 +130,12 @@ mutation then turned 1 test red. The test comment records this.
   about 2,300 lines of product code.
 - It does not prove that the tests measure the right thing. A test that reads the
   wrong place turns red for the wrong reason too.
+- A test that never runs guards nothing, and no mutation finds it.
+  `tests/test_help.py` called `unittest.main()` three lines above `ReseedTest`, so
+  `python3 -m tests.test_help` ran 14 tests and `python3 -m unittest tests.test_help`
+  ran 20. Six tests were invisible to anyone who ran the file as a script. The count of
+  the two commands must agree. The reviewer of PR 2 found this one, and no mutation
+  could.
 - The policy tests (`tests/test_policy.py`) are measured on the files, not on a
   mutation. The `wsl ` guard turned red once for real on 2026-09-04: its own
   docstring carried the string. The docstring no longer does.

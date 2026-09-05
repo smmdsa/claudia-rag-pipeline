@@ -29,9 +29,11 @@ if [ "${1:-}" = "--gpu" ]; then FILES+=(-f "$HERE/docker-compose.gpu.yml"); shif
 ARGS=("$@")
 if [ ${#ARGS[@]} -eq 0 ]; then ARGS=(up -d --build); fi
 
+# Check the ports of this stack only, and never refuse the stack's own ports. A stack
+# that already runs holds them, and `docker compose up -d` on it is a no operation.
 if [ "${ARGS[0]}" = "up" ]; then
-  if ! (cd "$REPO_ROOT" && HARNESS_BOARD_PORT=0 python3 -m harness ports); then
-    echo "up.sh: a port is taken. Override it in the environment and run again." >&2
+  if ! (cd "$REPO_ROOT" && python3 -m harness stack ports --stack rag); then
+    echo "up.sh: another process holds a port of this stack. Override it in the environment, or stop that process." >&2
     exit 1
   fi
 fi

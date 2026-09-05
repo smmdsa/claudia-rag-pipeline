@@ -38,7 +38,7 @@ binds each port.
 ## 4. Ask what number moves if the system dies right now.
 
 **Origin.** Source A, `infra/qmd/agent/agent.mjs`: the canary measured the mtime of
-the newest source file and called it freshness. `backend-ace-cad` reported 119 h
+the newest source file and called it freshness. a companion repository reported 119 h
 while `qmd update` had covered it minutes before. The canary failed in both
 directions: false alarm, and blind when the indexer died.
 

@@ -8,8 +8,9 @@ the RAG stack to re-index. Both `open` and `close` run with no RAG stack.
 import glob
 import os
 import re
+import time
 
-from harness import board, journal, manifest, rag, scaffold, state
+from harness import board, journal, manifest, mcp, rag, scaffold, stack, state
 from harness.board import next_tasks, scan, summary, waiting_decisions
 from harness.clock import overdue
 from harness.util import HarnessError, human_delta, now, parse_date, parse_iso, read_text, sh, write_text
@@ -67,15 +68,39 @@ def last_session_doc(root):
     return files[-1] if files else None
 
 
-def open_brief(root, with_rag=True):
+# After `docker compose start` a service needs a moment to answer. Three tries over
+# fifteen seconds cover a warm start. A cold start is a build, and `start` never builds.
+RETRY_SLEEP = 5
+RETRIES = 3
+
+
+def open_brief(root, with_rag=True, with_stack=True):
     brief = {"now": now().isoformat(timespec="seconds")}
     doc = manifest.doctor(root)
     if doc["state"] == "not-initialised":
         created = scaffold.init(root)
         brief["init"] = created
         doc = manifest.doctor(root)
+    elif doc["state"] == "damaged" and manifest.only_missing_seeded(doc):
+        brief["reseeded"] = scaffold.init(root)
+        doc = manifest.doctor(root)
     brief["doctor"] = doc
     brief["rag"] = rag.health(root) if with_rag else {"level": "skipped", "problems": [], "warnings": []}
+    if with_rag and with_stack and brief["rag"]["level"] == "broken":
+        # The canary is the signal. Docker is the repair. A green canary costs no
+        # docker call at all, so the common session never shells out.
+        report = stack.start(root, "rag")
+        brief["stack"] = report
+        for _ in range(RETRIES if report.get("started") else 0):
+            time.sleep(RETRY_SLEEP)
+            brief["rag"] = rag.health(root)
+            if brief["rag"]["level"] != "broken":
+                break
+    # The index answers on its port, and that does not prove that THIS agent can
+    # search. Claude Code opens an MCP connection once, when its process starts.
+    brief["mcp"] = (mcp.link_state(root) if with_rag and with_stack
+                    else {"state": "unknown", "reason": "not measured", "gap": None,
+                          "agent_started": None, "index_started": None})
 
     last = journal.last_session(root)
     brief["last_session"] = last
@@ -131,12 +156,23 @@ def open_text(b):
     lines = []
     if b.get("init"):
         lines.append("INIT: the repository was not initialised. init created %d file(s)." % len(b["init"]["created"]))
+    if b.get("reseeded"):
+        lines.append("RESEED: seeded file(s) were missing. init wrote %d again. "
+                     "This repository keeps its own board out of git."
+                     % len(b["reseeded"]["created"]))
     if b["doctor"]["state"] != "sound":
         lines.append(manifest.doctor_text(b["doctor"]))
+    if b.get("stack"):
+        line = stack.brief_line(b["stack"])
+        if line:
+            lines.append(line)
     if b["rag"]["level"] == "broken":
         lines.append("RAG: BROKEN — this session searches blind. " + "; ".join(b["rag"]["problems"]))
     elif b["rag"]["level"] == "warnings":
         lines.append("RAG: warnings — " + "; ".join(b["rag"]["warnings"]))
+    link = mcp.link_line(b.get("mcp") or {})
+    if link:
+        lines.append(link)
     lines.append("")
     if b["last_session"]:
         lines.append("## Last session: %s" % b["last_session"].get("slug"))
@@ -145,6 +181,7 @@ def open_text(b):
                                                        b["last_doc"] or "(none)"))
     else:
         lines.append("## Last session: none recorded. This is the first session with a journal.")
+        lines.append("New here? Run `python3 -m harness help` for the map of what init created.")
     g = b["git"]
     lines.append("")
     lines.append("## Repository")
