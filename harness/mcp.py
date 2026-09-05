@@ -152,7 +152,7 @@ def index_started_at(root, name="rag", port=None):
     The stack holds more than one container. Only the one that serves the MCP port
     holds the connection, so this reads that one and never the newest.
     """
-    port = port_for("HARNESS_RAG_PORT") if port is None else port
+    port = port_for("HARNESS_RAG_PORT", root) if port is None else port
     report = stack.status(root, name)
     if not report.get("docker"):
         return None

@@ -25,7 +25,12 @@ def derive(root):
         "HARNESS_PROJECT": re.sub(r"[^a-z0-9]+", "-", os.path.basename(root).lower()).strip("-") or "project",
     }
     for var in DEFAULTS:
-        values[var] = str(port_for(var))
+        # A pure derivation: the shell or the default, and never the file that this
+        # writes. A writer that reads its own output cannot reset a wrong value. The
+        # user overrides a port in the shell, `env` writes it here, and every reader
+        # then takes it from this file.
+        raw = os.environ.get(var)
+        values[var] = raw if raw and raw.isdigit() else str(DEFAULTS[var][0])
     values["HARNESS_ENV_AT"] = now_iso()
     return values
 

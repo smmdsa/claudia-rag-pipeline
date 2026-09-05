@@ -48,6 +48,21 @@ always meant: you talk to your agent, and the agent runs the harness.
   It hashes every task path with its size and its time. The PATH carries the state, so
   a move changes the hash whatever the clock does. M43 guards it.
 
+- **`harness ports` could check a port that docker does not publish.**
+  `harness/stack.py` runs `docker compose --env-file .harness/env.local`, and that file
+  declares the three ports. `ports.port_for` read the process environment alone, so a
+  port that the user overrode in the file was invisible and the checker fell to the
+  default. The two agreed only while the override matched the default (law 3).
+  `port_for` now follows the order that compose follows: the shell, then the env file,
+  then the default. `env.derive` stays a pure derivation and never reads the file it
+  writes. M44 guards it. The reviewer of PR 2 found this.
+
+- **Six tests never ran as a script.** `tests/test_help.py` called `unittest.main()`
+  three lines above `ReseedTest`. `python3 -m tests.test_help` ran 14 tests and
+  `python3 -m unittest tests.test_help` ran 20. The call moved to the end of the file,
+  and the two commands now agree at 20. A test that never runs guards nothing (law 9),
+  and no mutation finds it. The reviewer of PR 2 found this.
+
 - **A verdict on an epic sheet landed under `## Out of scope`.** `harness/board.py`
   `_append_section` checked that the header exists, then appended to the end of the
   FILE. `work/templates/epic.md` holds `## Verdicts` above `## Out of scope`, so every

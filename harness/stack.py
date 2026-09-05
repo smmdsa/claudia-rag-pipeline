@@ -180,7 +180,7 @@ def port_report(root, name="rag"):
             mine.update(s.get("published") or [])
     rows = []
     for var in STACK_PORTS.get(name, ()):
-        port = ports.port_for(var)
+        port = ports.port_for(var, root)
         free = ports.is_free(port)
         rows.append({"var": var, "port": port, "free": free,
                      "mine": port in mine, "conflict": (not free) and port not in mine})

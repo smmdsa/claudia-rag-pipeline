@@ -55,6 +55,7 @@ not whether one does. Baseline: 106 tests, 0 red. After the last restore: 106 te
 | M41 | `harness/mcp.py` | an index that started after the agent still reads as a live link | 1 — `LinkTest.test_an_index_that_started_later_is_stale` |
 | M42 | `harness/mcp.py` | the elapsed time of the client is read as an absolute time | 1 — `AncestorTest.test_finds_the_client_above_the_shell` |
 | M43 | `harness/dashboard.py` | the cache is never stale, so the page answers from an old reading | 2 — `DashboardTest.test_a_move_makes_the_cache_stale`, `DashboardTest.test_the_page_reads_a_move_with_no_wait` |
+| M44 | `harness/ports.py` | port_for ignores the env file that docker compose reads | 2 — `PortsTest.test_port_for_reads_the_env_file_that_docker_compose_reads`, `PortsTest.test_stack_ports_check_the_port_that_docker_publishes` |
 
 M38 and M39 ran on 2026-09-05, after `./infra/rag/up.sh` refused to run on a stack that
 was already up. Baseline 151 tests, 0 red. After the restore: 151 tests, 0 red.
@@ -129,6 +130,12 @@ mutation then turned 1 test red. The test comment records this.
   about 2,300 lines of product code.
 - It does not prove that the tests measure the right thing. A test that reads the
   wrong place turns red for the wrong reason too.
+- A test that never runs guards nothing, and no mutation finds it.
+  `tests/test_help.py` called `unittest.main()` three lines above `ReseedTest`, so
+  `python3 -m tests.test_help` ran 14 tests and `python3 -m unittest tests.test_help`
+  ran 20. Six tests were invisible to anyone who ran the file as a script. The count of
+  the two commands must agree. The reviewer of PR 2 found this one, and no mutation
+  could.
 - The policy tests (`tests/test_policy.py`) are measured on the files, not on a
   mutation. The `wsl ` guard turned red once for real on 2026-09-04: its own
   docstring carried the string. The docstring no longer does.

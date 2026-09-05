@@ -28,7 +28,7 @@ the agent runs the harness and reads the result back to you.
 
 | you type or say | the agent runs |
 |---|---|
-| `/session-start` | the doctor, the canary, the clock, the board, and one brief |
+| `/session-start` | the doctor, the RAG canary, the MCP link, the clock, the board, the state, and one brief |
 | "what is next?" | `next`, and it names the first task it can start |
 | "start the login task" | `start TASK-0004`, then it writes the code |
 | "that works, close it" | `done TASK-0004 --verdict "<your words>" --by user` |

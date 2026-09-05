@@ -135,8 +135,6 @@ class SeedTaskTest(unittest.TestCase):
         self.assertIn("harness help", out)
 
 
-if __name__ == "__main__":
-    unittest.main()
 
 
 class ReseedTest(unittest.TestCase):
@@ -205,3 +203,7 @@ class ReseedTest(unittest.TestCase):
         session.open_brief(self.root, with_rag=False)
         after = read_text(os.path.join(self.root, ".harness", "manifest.json"))
         self.assertEqual(before, after)
+
+
+if __name__ == "__main__":
+    unittest.main()

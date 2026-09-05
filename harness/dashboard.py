@@ -207,7 +207,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def serve(root, port=None, host="127.0.0.1", rebuild_every=0, db=None, once=False):
-    port = port or port_for("HARNESS_BOARD_PORT")
+    port = port or port_for("HARNESS_BOARD_PORT", root)
     db = db or db_path(root)
     if not is_free(port, host):
         raise HarnessError("port %d is taken. Override it with HARNESS_BOARD_PORT=<port>. Run `python3 -m harness ports`." % port)

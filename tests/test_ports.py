@@ -1,6 +1,7 @@
 """Port checks and the derived environment file.
 
-Mutation proof (docs/MUTATION.md): M10 (every port free) turned 2 tests red.
+Mutation proof (docs/MUTATION.md): M10 (every port free) turned 2 tests red;
+M44 (port_for ignores the env file) 2 red.
 """
 import os
 import socket
@@ -61,6 +62,52 @@ class PortsTest(unittest.TestCase):
             self.assertTrue(os.path.exists(os.path.join(root, ".harness", "env.local")))
         finally:
             os.environ.pop("HARNESS_RAG_PORT", None)
+            rm(root)
+
+    def test_port_for_reads_the_env_file_that_docker_compose_reads(self):
+        """`docker compose --env-file` reads this file. The checker must read it too."""
+        root = make_repo(init=False)
+        try:
+            os.environ["HARNESS_RAG_PORT"] = "9410"
+            env.write(root)
+            os.environ.pop("HARNESS_RAG_PORT")
+            self.assertEqual(ports.port_for("HARNESS_RAG_PORT", root), 9410)
+        finally:
+            os.environ.pop("HARNESS_RAG_PORT", None)
+            rm(root)
+
+    def test_the_shell_wins_over_the_env_file(self):
+        root = make_repo(init=False)
+        try:
+            os.environ["HARNESS_RAG_PORT"] = "9410"
+            env.write(root)
+            os.environ["HARNESS_RAG_PORT"] = "9510"
+            self.assertEqual(ports.port_for("HARNESS_RAG_PORT", root), 9510)
+        finally:
+            os.environ.pop("HARNESS_RAG_PORT", None)
+            rm(root)
+
+    def test_no_env_file_falls_to_the_default(self):
+        root = make_repo(init=False)
+        try:
+            os.environ.pop("HARNESS_RAG_PORT", None)
+            self.assertEqual(ports.port_for("HARNESS_RAG_PORT", root), 8410)
+        finally:
+            rm(root)
+
+    def test_stack_ports_check_the_port_that_docker_publishes(self):
+        from harness import stack
+        root = make_repo(init=False)
+        try:
+            os.environ["HARNESS_BOARD_PORT"] = "9412"
+            env.write(root)
+            os.environ.pop("HARNESS_BOARD_PORT")
+            declared = {v: k for k, v in env.read(root).items()}
+            self.assertEqual(declared["9412"], "HARNESS_BOARD_PORT")
+            self.assertEqual(ports.port_for("HARNESS_BOARD_PORT", root), 9412)
+            self.assertIn("HARNESS_BOARD_PORT", stack.STACK_PORTS["board"])
+        finally:
+            os.environ.pop("HARNESS_BOARD_PORT", None)
             rm(root)
 
 

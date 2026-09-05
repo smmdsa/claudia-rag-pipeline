@@ -176,7 +176,7 @@ def _skills(root):
 def _rag(root):
     items = []
     for var, (default, service) in sorted(ports.DEFAULTS.items(), key=lambda kv: kv[1][0]):
-        live = ports.port_for(var)
+        live = ports.port_for(var, root)
         note = "" if live == default else "  (set to %d)" % live
         items.append([str(default), "%s  %s%s" % (var, service, note)])
     return [

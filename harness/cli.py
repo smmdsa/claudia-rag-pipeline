@@ -333,7 +333,7 @@ def run(args):
         return 0
 
     if c == "ports":
-        rows = ports.check_ports()
+        rows = ports.check_ports(root=root)
         emit(rows, js, ports.ports_text)
         return 0 if ports.all_free(rows) else 1
     if c == "env":
