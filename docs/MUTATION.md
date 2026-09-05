@@ -51,6 +51,7 @@ not whether one does. Baseline: 106 tests, 0 red. After the last restore: 106 te
 | M37 | `harness/board.py` | new sprint overwrites a sprint that exists | 1 — `EpicIdTest.test_new_sprint_refuses_an_id_that_exists` |
 | M38 | `harness/stack.py` | the port check ignores who holds the port | 1 — `PortTest.test_a_port_that_this_stack_holds_is_not_a_conflict` |
 | M39 | `harness/stack.py` | a stopped container still claims its published port | 1 — `PortTest.test_a_stopped_container_does_not_hold_its_port` |
+| M40 | `harness/board.py` | _append_section writes at the end of the file, and never at the end of the section | 4 — `BoardTest.test_append_section_writes_inside_a_section_in_the_middle`, `BoardTest.test_append_section_accumulates_in_order`, `BoardTest.test_append_section_keeps_a_deeper_header_inside_the_section`, `BoardTest.test_done_writes_the_epic_verdict_under_its_own_header` |
 
 M38 and M39 ran on 2026-09-05, after `./infra/rag/up.sh` refused to run on a stack that
 was already up. Baseline 151 tests, 0 red. After the restore: 151 tests, 0 red.

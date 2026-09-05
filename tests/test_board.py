@@ -1,7 +1,8 @@
 """The board: scan, next, moves, verdicts, check, new.
 
 Mutation proof (docs/MUTATION.md): M01 (no verdict needed) 2 red, M02 (blockers ignored) 1 red, M15 (any work size) 1 red,
-M16 (priority without provenance accepted) 1 red.
+M16 (priority without provenance accepted) 1 red,
+M40 (a section ends at the end of the file) 4 red.
 """
 import os
 import unittest
@@ -9,7 +10,7 @@ import unittest
 from tests.helpers import cli, commit_all, make_repo, rm, seed_board
 
 from harness import board
-from harness.util import HarnessError, read_text
+from harness.util import HarnessError, read_text, write_text
 
 
 class BoardTest(unittest.TestCase):
@@ -162,6 +163,56 @@ class BoardTest(unittest.TestCase):
         _, ep = board.find_epic(tree, self.ids["epic"])
         self.assertIn("TASK-0002 · \"it runs on my screen\"", read_text(ep.sheet))
         self.assertTrue(board.find(tree, "TASK-0002").has_verdict())
+
+    def _sheet(self, text):
+        p = os.path.join(self.root, "sheet.md")
+        write_text(p, text)
+        return p
+
+    def test_append_section_writes_inside_a_section_in_the_middle(self):
+        p = self._sheet("# E\n\n## Verdicts\n\n(none)\n\n## Out of scope\n\nnothing\n")
+        board._append_section(p, "## Verdicts", "- one")
+        text = read_text(p)
+        self.assertLess(text.index("- one"), text.index("## Out of scope"))
+
+    def test_append_section_accumulates_in_order(self):
+        p = self._sheet("# E\n\n## Verdicts\n\n(none)\n\n## Out of scope\n\nnothing\n")
+        board._append_section(p, "## Verdicts", "- one")
+        board._append_section(p, "## Verdicts", "- two")
+        text = read_text(p)
+        self.assertLess(text.index("- one"), text.index("- two"))
+        self.assertLess(text.index("- two"), text.index("## Out of scope"))
+
+    def test_append_section_writes_at_the_end_when_the_section_is_last(self):
+        p = self._sheet("# E\n\n## Out of scope\n\nnothing\n\n## Verdicts\n\n(none)\n")
+        board._append_section(p, "## Verdicts", "- one")
+        text = read_text(p)
+        self.assertLess(text.index("## Verdicts"), text.index("- one"))
+        self.assertTrue(text.endswith("- one\n"))
+
+    def test_append_section_creates_the_header_when_it_is_missing(self):
+        p = self._sheet("# E\n\n## Out of scope\n\nnothing\n")
+        board._append_section(p, "## Verdict", "- one")
+        text = read_text(p)
+        self.assertLess(text.index("## Verdict\n"), text.index("- one"))
+
+    def test_append_section_keeps_a_deeper_header_inside_the_section(self):
+        p = self._sheet("# E\n\n## Verdicts\n\n### 2026\n\n(none)\n\n## Out of scope\n\nnothing\n")
+        board._append_section(p, "## Verdicts", "- one")
+        text = read_text(p)
+        self.assertLess(text.index("### 2026"), text.index("- one"))
+        self.assertLess(text.index("- one"), text.index("## Out of scope"))
+
+    def test_done_writes_the_epic_verdict_under_its_own_header(self):
+        tree = board.scan(self.root)
+        board.move(self.root, tree, "TASK-0002", "in-progress")
+        tree = board.scan(self.root)
+        board.move(self.root, tree, "TASK-0002", "done", verdict="it runs on my screen", by="user")
+        tree = board.scan(self.root)
+        _, ep = board.find_epic(tree, self.ids["epic"])
+        text = read_text(ep.sheet)
+        self.assertLess(text.index("## Verdicts"), text.index("it runs on my screen"))
+        self.assertLess(text.index("it runs on my screen"), text.index("## Out of scope"))
 
     def test_done_on_eye_none_needs_no_verdict(self):
         tree = board.scan(self.root)

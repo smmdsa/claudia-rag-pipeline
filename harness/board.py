@@ -529,12 +529,23 @@ def _git_mv(root, src, dst):
 
 
 def _append_section(path, header, line):
+    """Write the line at the end of the SECTION, and never at the end of the file.
+
+    A sheet holds `## Verdicts` above `## Out of scope`. The end of the file is not the
+    end of the section, so an append to the file writes the verdict under the wrong
+    header. The section ends at the next `## ` line, or at the end of the text.
+    A deeper header, such as `### 2026`, belongs to the section and never ends it.
+    """
     text = read_text(path) if os.path.exists(path) else ""
-    if re.search(r"^%s\s*$" % re.escape(header), text, re.M):
-        text = text.rstrip("\n") + "\n" + line + "\n"
-    else:
-        text = text.rstrip("\n") + "\n\n" + header + "\n\n" + line + "\n"
-    write_text(path, text)
+    found = re.search(r"^%s\s*$" % re.escape(header), text, re.M)
+    if found is None:
+        write_text(path, text.rstrip("\n") + "\n\n" + header + "\n\n" + line + "\n")
+        return
+    after = re.search(r"^## ", text[found.end():], re.M)
+    cut = found.end() + after.start() if after else len(text)
+    head = text[:cut].rstrip("\n") + "\n" + line + "\n"
+    tail = text[cut:]
+    write_text(path, head + "\n" + tail if tail else head)
 
 
 def move(root, tree, task_id, to, verdict=None, by=None):
