@@ -16,9 +16,15 @@ work/sprints/*
 !work/sprints/.gitkeep
 # sprint-000 is the exception, and it ships. It is the setup sprint of this
 # repository, and it is the only worked example of a real sprint that a reader can
-# open: a sprint sheet, an epic sheet, and one task in a state folder. Every later
+# open: a sprint sheet, an epic sheet, and the four state folders. Every later
 # sprint is the work that we do with the harness, and it stays local.
 !work/sprints/sprint-000/
+# The task file of sprint-000 stays out of git. The folder shape ships, and the
+# progress does not. A move of TASK-0001 between state folders is the work that we do
+# with the harness, and law 1 says that the folder tree is the truth. An adopter gets
+# the same task from `harness/templates/work/backlog/TASK-0001-*.md`, which the package
+# carries and `init` writes into the backlog.
+work/sprints/sprint-000/**/TASK-*.md
 work/backlog/TASK-*.md
 work/ROADMAP.md
 docs/sessions/*.md
