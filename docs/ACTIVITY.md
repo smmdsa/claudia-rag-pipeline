@@ -17,8 +17,6 @@ States: `active` · `paused` · `blocked` · `closed` (then move the row to the 
 
 | front | owner | state | touched | next step |
 |---|---|---|---|---|
-| The harness product, version 0.1.0 | Santiago | active | 2026-09-04 (0f656c6) | the user reads the report and approves the push |
-| The containers on a second machine | Santiago | active | 2026-09-04 (sprint-001) | TASK-0001: read nvidia-smi from the GPU image |
 
 ## Archive
 
