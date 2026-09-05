@@ -8,6 +8,7 @@ stderr and exits 2.
 import json
 import os
 import re
+import shlex
 import sys
 
 from harness import board, manifest, scaffold, state
@@ -22,6 +23,7 @@ TASK_FILE = re.compile(r"(^|/)work/.*TASK-\d{4}[^/]*\.md$")
 PRIORITY_LINE = re.compile(r"^\s*priority(-[a-z]+)?\s*:.*$", re.M)
 MOVE_ON_WORK = re.compile(r"(^|[\s;&|(])(mv|cp|rm|rmdir)\s[^;&|]*\bwork/(sprints|backlog)\b")
 GIT_MV_ON_WORK = re.compile(r"\bgit\s+(mv|rm)\s[^;&|]*\bwork/")
+SHELL_SEPARATOR = frozenset((";", "&&", "||", "|", "&", "(", ")"))
 
 
 def read_payload(stream=None):
@@ -99,10 +101,73 @@ def _priority_lines_change(payload):
 
 def pre_bash(root, payload):
     cmd = (payload.get("tool_input") or {}).get("command", "") or ""
+    protected = _protected_git_operation(cmd)
+    if protected:
+        return _deny("this command runs `%s` with history-changing flags. "
+                     "Use a non-history-rewriting Git operation instead." % protected)
     if MOVE_ON_WORK.search(cmd) or GIT_MV_ON_WORK.search(cmd):
         return _deny("this command moves or removes files under work/ by hand. The folder is the state. "
                      "Use `python3 -m harness start|done|back|assign`, or `git rm` through the user.")
     return 0
+
+
+def _protected_git_operation(command):
+    """Name a protected Git operation, independent of valid flag ordering.
+
+    Claude permission rules match command text. The Bash hook receives the full
+    command and can inspect each shell segment before it runs. Invalid shell input
+    is left to the shell instead of breaking the hook.
+    """
+    try:
+        lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|()")
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        words = list(lexer)
+    except ValueError:
+        return None
+
+    segment = []
+    for word in words + [";"]:
+        if word not in SHELL_SEPARATOR:
+            segment.append(word)
+            continue
+        operation = _protected_git_segment(segment)
+        if operation:
+            return operation
+        segment = []
+    return None
+
+
+def _protected_git_segment(words):
+    index = 0
+    while index < len(words) and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", words[index]):
+        index += 1
+    if index < len(words) and words[index] in ("command", "exec"):
+        index += 1
+    if index < len(words) and words[index] == "env":
+        index += 1
+        while index < len(words) and (words[index].startswith("-") or "=" in words[index]):
+            index += 1
+    if index >= len(words) or words[index] != "git":
+        return None
+    words = words[index + 1:]
+    known = ("commit", "push")
+    command_at = next((i for i, word in enumerate(words) if word in known), None)
+    if command_at is None:
+        return None
+    command = words[command_at]
+    args = words[command_at + 1:]
+    if command == "commit" and any(arg == "--amend" or arg.startswith("--amend=") for arg in args):
+        return "git commit --amend"
+    if command == "push" and any(_force_push_flag(arg) for arg in args):
+        return "git push --force"
+    return None
+
+
+def _force_push_flag(arg):
+    if arg in ("--force", "--force-with-lease") or arg.startswith(("--force=", "--force-with-lease=")):
+        return True
+    return arg.startswith("-") and not arg.startswith("--") and "f" in arg[1:]
 
 
 def _touches_work(root, payload):

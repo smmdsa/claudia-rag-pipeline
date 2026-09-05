@@ -95,6 +95,34 @@ class HookTest(unittest.TestCase):
             _, out, _ = run_hook(self.root, "pre-bash", {"tool_name": "Bash", "tool_input": {"command": cmd}})
             self.assertEqual(out, "", cmd)
 
+    def test_pre_bash_denies_history_changes_with_reordered_git_flags(self):
+        denied = (
+            "git commit --amend -m x",
+            "git commit -q --amend -m x",
+            "git -C ../repo commit --no-edit --amend",
+            "git push --force origin main",
+            "git push origin main --force",
+            "git push origin main --force-with-lease=main:abc",
+            "cd repo && git push -qf origin main",
+            "env CI=1 git push origin main -f",
+        )
+        for cmd in denied:
+            _, out, _ = run_hook(
+                self.root, "pre-bash", {"tool_name": "Bash", "tool_input": {"command": cmd}}
+            )
+            self.assertEqual(decision(out), "deny", cmd)
+
+        for cmd in (
+            "git commit -m x",
+            "git push origin main",
+            "printf 'git push --force'",
+            "echo git push --force",
+        ):
+            _, out, _ = run_hook(
+                self.root, "pre-bash", {"tool_name": "Bash", "tool_input": {"command": cmd}}
+            )
+            self.assertEqual(out, "", cmd)
+
     def test_post_work_runs_check_and_feeds_back_red(self):
         code, out, err = run_hook(self.root, "post-work", {"tool_name": "Edit", "tool_input": {"file_path": self.task}})
         self.assertEqual(code, 0)
