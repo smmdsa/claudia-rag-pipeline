@@ -54,6 +54,7 @@ Use the left column. Never use the right column.
 | work | effort, story points, complexity |
 | eye | QA time, review time, human check |
 | size | estimate, points |
+| help | onboarding, tour, guide, walkthrough |
 
 Add a row when you choose a new term. Do not remove rows.
 
@@ -91,6 +92,7 @@ records each one with the measured failure that produced it. The short form:
 ## Command reference
 
 ```text
+python3 -m harness help [board|eye|skills|rag]    the adopter's map
 python3 -m harness init | doctor | upgrade | uninstall | adopt <f> | restore <f>
 python3 -m harness profile show|set k=v|ask        python3 -m harness skills generate
 python3 -m harness board | next | list | show <id> | check | clock

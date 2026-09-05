@@ -12,6 +12,7 @@ third-party code, and a lockfile pins that code.
 ├── harness/                    the Python package. Copy this directory to install.
 │   ├── __main__.py             `python3 -m harness <command>`
 │   ├── cli.py                  the command table
+│   ├── help.py                 the adopter's map: `help [topic]`
 │   ├── manifest.py             .harness/manifest.json, checksums, doctor
 │   ├── scaffold.py             init, upgrade, uninstall, adopt, restore
 │   ├── frontmatter.py          the front matter reader and writer

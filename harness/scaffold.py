@@ -5,8 +5,10 @@
   CLAUDE.md          goes to CLAUDE.md when none exists, else to .claude/rules/harness.md
   gitignore.lines    its lines are added to .gitignore when they are missing
 
-Two kinds of file. `owned` files are the harness's: doctor checks their checksum.
+Three kinds of file. `owned` files are the harness's: doctor checks their checksum.
 `seeded` files are the project's after the first write: doctor checks that they exist.
+`SEED_TASK` is the adopter's first task: the manifest never records it, because the
+adopter moves it across the board.
 `init` never overwrites a file (law 12).
 """
 import difflib
@@ -38,6 +40,11 @@ SEEDED = {
 KEEP_DIRS = ("work/sprints", "work/backlog", "docs/sessions")
 
 SPECIAL = {"CLAUDE.md", "gitignore.lines"}
+
+# The adopter's first task. `init` writes it once, and the manifest never records it.
+# The adopter moves this file across the board, and `doctor` asks for every file that
+# the manifest records. A tracked task would turn `doctor` red on the first `done`.
+SEED_TASK = "work/backlog/TASK-0001-start-the-harness-in-this-repository.md"
 
 # Migration steps between versions. Each entry: (from, to, function(root) -> list of notes).
 MIGRATIONS = []
@@ -103,6 +110,17 @@ def _merge_hooks(root, template_json):
     return added
 
 
+def has_task(root):
+    """True when work/ already holds a task file. `work/templates/` does not count."""
+    base = os.path.join(root, "work")
+    for dirpath, dirs, files in os.walk(base):
+        dirs[:] = [d for d in dirs if d != "templates"]
+        for name in files:
+            if name.startswith("TASK-") and name.endswith(".md"):
+                return True
+    return False
+
+
 def init(root, rebuild_manifest=False):
     """Create every missing file. Keep every present file. Idempotent."""
     project = project_name(root)
@@ -122,6 +140,14 @@ def init(root, rebuild_manifest=False):
             missing = _ensure_lines(os.path.join(root, ".gitignore"), render(relpath, project).splitlines())
             manifest.record(data, ".gitignore", "seeded", template=relpath)
             (created if missing else kept).append(".gitignore")
+            continue
+        if relpath == SEED_TASK:
+            dest = os.path.join(root, *SEED_TASK.split("/"))
+            if os.path.exists(dest) or has_task(root):
+                kept.append(SEED_TASK)
+                continue
+            write_text(dest, render(relpath, project))
+            created.append(SEED_TASK + "  (your first task. The harness does not track it.)")
             continue
         dest_rel = rules_dest if relpath == "CLAUDE.md" else relpath
         dest = os.path.join(root, dest_rel)
@@ -159,7 +185,12 @@ def init_text(r):
         lines.append("  + " + c)
     for n in r["notes"]:
         lines.append("  note: " + n)
-    lines.append("next: `python3 -m harness profile ask`, then `python3 -m harness doctor`.")
+    lines.append("")
+    lines.append("Run `python3 -m harness help` to read what init created and what you own.")
+    if any(c.startswith(SEED_TASK) for c in r["created"]):
+        lines.append("Your board holds your first task. Run `python3 -m harness next` to read it.")
+    else:
+        lines.append("next: `python3 -m harness profile ask`, then `python3 -m harness doctor`.")
     return "\n".join(lines)
 
 

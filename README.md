@@ -24,9 +24,24 @@ git clone git@github.com:smmdsa/claudia-rag-pipeline.git /tmp/hrp
 cp -r /tmp/hrp/harness  /path/to/your/repo/harness
 cd /path/to/your/repo
 python3 -m harness init          # creates every missing file; never overwrites
+python3 -m harness help          # what init created, what you own, where the rules live
 python3 -m harness profile ask   # four questions: architecture, languages, purpose, end user
 python3 -m harness skills generate
 python3 -m harness doctor        # exit 0 sound · 1 damaged · 2 not initialised
+```
+
+`init` also writes your first task to `work/backlog/`. It holds the setup steps, and
+the manifest never records it: you move it across the board like any other task, and
+`doctor` never asks for it again. `init` writes it once. It never writes it again after
+the board holds a task.
+
+`python3 -m harness help` is the map. Four topics go deeper:
+
+```bash
+python3 -m harness help board    # the states, the daily commands, what check does not do
+python3 -m harness help eye      # the second size, and why `done` refuses without --verdict
+python3 -m harness help skills   # every skill under .claude/skills/, read from the tree
+python3 -m harness help rag      # the optional search index and its three ports
 ```
 
 `init` is idempotent. Run it twice and the second run creates nothing. If the

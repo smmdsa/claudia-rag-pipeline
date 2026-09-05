@@ -145,6 +145,7 @@ def open_text(b):
                                                        b["last_doc"] or "(none)"))
     else:
         lines.append("## Last session: none recorded. This is the first session with a journal.")
+        lines.append("New here? Run `python3 -m harness help` for the map of what init created.")
     g = b["git"]
     lines.append("")
     lines.append("## Repository")

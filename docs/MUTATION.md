@@ -29,6 +29,31 @@ not whether one does. Baseline: 106 tests, 0 red. After the last restore: 106 te
 | M15 | `harness/board.py` | check accepts any work size | 1 — `BoardTest.test_check_finds_shape_errors` |
 | M16 | `harness/board.py` | check ignores a priority with no provenance | 1 — `BoardTest.test_priority_without_provenance_turns_check_red` |
 | M17 | `harness/hooks.py` | the pre-write hook never sees a priority line | 1 — `HookTest.test_pre_write_denies_priority_by_hand` |
+| M18 | `harness/help.py` | help skills prints a fixed list and never reads the tree | 1 — `HelpTest.test_skills_are_read_from_the_tree_not_from_a_list` |
+| M19 | `harness/help.py` | an unknown help topic returns the overview instead of an error | 1 — `HelpTest.test_unknown_topic_exits_1_and_names_every_topic` |
+| M20 | `harness/help.py` | help names a path without a check that the path exists | 1 — `HelpTest.test_help_runs_before_init_and_marks_the_missing_paths` |
+| M21 | `harness/scaffold.py` | the manifest records the adopter's first task | 3 — `SeedTaskTest.test_init_writes_the_first_task_and_the_manifest_ignores_it`, `SeedTaskTest.test_doctor_stays_sound_after_the_first_task_moves`, `ScaffoldTest.test_cli_profile_and_doctor` |
+| M22 | `harness/scaffold.py` | init writes the first task again after the adopter moves it | 1 — `SeedTaskTest.test_init_never_writes_the_first_task_twice` |
+| M23 | `harness/help.py` | help eye hard-codes the eye values | 1 — `HelpTest.test_eye_topic_follows_harness_board_eye` |
+| M24 | `harness/help.py` | help board hard-codes the states | 1 — `HelpTest.test_board_topic_follows_harness_board_states` |
+
+M18 to M24 ran on 2026-09-05 for the `help` command and the seeded first task.
+Baseline 123 tests, 0 red. After the restore: 123 tests, 0 red.
+
+`HelpTest.test_overview_names_no_path_that_init_does_not_create` turned red once for
+real on 2026-09-05, with no mutation. `help` named `docs/DESIGN-LAWS.md` and offered
+`init` as the fix. `init` never installs that file: the twelve laws travel to the
+adopter in short form inside `CLAUDE.md`, and the full record stays in the harness
+repository. This repository holds `docs/DESIGN-LAWS.md`, so the path existed here and
+the text looked correct. Law 3 names this trap. The test runs on a fresh repository,
+so it measured what this repository hides. The `help` text now states where the full
+record lives, and it offers no fix that `init` cannot deliver.
+
+M23 and M24 exist because the first version of the two topic tests was weak. That
+version asserted that the output holds `NONE`, `GLANCE`, and `RUN`. A hard-coded copy
+of the same three words passed it. The test now patches `harness.board.EYE` and
+`harness.board.STATES` with a probe value, so it measures the coupling and not the
+words. Law 9 names this trap: a green test can guard a bug.
 
 M16 and M17 ran on 2026-09-04 after the user chose enforcement for `priority`
 (proposal P17). Baseline 110 tests, 0 red. After the restore: 110 tests, 0 red.

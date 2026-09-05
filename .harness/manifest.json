@@ -82,7 +82,7 @@
     "CLAUDE.md": {
       "kind": "owned",
       "template": "CLAUDE.md",
-      "sha256": "9e22e0d4bace6eb8eb8a122f8dd37d8eba21c645b9772b40447bac3cc93a9cac"
+      "sha256": "c3d337ca606ab03520b5f63c739b4e7e1d07cbe0f966c66868398e926a32d9e8"
     },
     "docs/ACTIVITY.md": {
       "kind": "seeded",

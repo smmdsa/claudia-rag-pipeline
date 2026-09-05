@@ -10,6 +10,7 @@ import os
 import sys
 
 from harness import VERSION, board, ceremonies, dashboard, env, hooks, journal, manifest, ports, profile, rag, scaffold, session, state
+from harness import help as help_
 from harness.board import scan
 from harness.clock import clock_report, clock_text
 from harness.util import HarnessError, emit, find_root
@@ -33,6 +34,8 @@ def build_parser():
             sp.add_argument("--json", action="store_true", help="print JSON")
         return sp
 
+    sp = add("help", "the adopter's map: what init created, what you own, and where the rules live")
+    sp.add_argument("topic", nargs="?", metavar="topic", help="one of: %s" % ", ".join(help_.TOPICS))
     add("init", "create every missing harness file. Idempotent.").add_argument("--rebuild-manifest", action="store_true")
     add("doctor", "report the integrity of the install: exit 0 sound, 1 damaged, 2 not initialised")
     add("upgrade", "rewrite unchanged owned files from the new templates and record the version")
@@ -142,6 +145,9 @@ def run(args):
     js = getattr(args, "json", False)
     c = args.cmd
 
+    if c == "help":
+        emit(help_.report(root, args.topic), js, help_.help_text)
+        return 0
     if c == "init":
         r = scaffold.init(root, rebuild_manifest=args.rebuild_manifest)
         emit(r, js, scaffold.init_text)

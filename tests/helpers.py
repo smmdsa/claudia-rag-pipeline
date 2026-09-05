@@ -17,11 +17,21 @@ def git(root, *args):
                           cwd=root, capture_output=True, text=True)
 
 
-def make_repo(init=True):
+def make_repo(init=True, seed_task=False):
+    """A fresh repository. `init` runs the scaffold. `seed_task` keeps the adopter task.
+
+    `init` seeds `work/backlog/TASK-0001-start-the-harness-in-this-repository.md` for
+    the adopter. That task is the adopter's work, not a fixture: it shifts every id
+    that `seed_board` creates. The default removes it. `tests/test_help.py` asks for
+    it with `seed_task=True`.
+    """
     root = os.path.realpath(tempfile.mkdtemp(prefix="hrp-"))
     git(root, "init", "-q", "-b", "main")
     if init:
         scaffold.init(root)
+        seed = os.path.join(root, *scaffold.SEED_TASK.split("/"))
+        if not seed_task and os.path.exists(seed):
+            os.remove(seed)
     return root
 
 
