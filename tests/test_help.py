@@ -186,6 +186,18 @@ class ReseedTest(unittest.TestCase):
         self.assertNotIn("reseeded", brief)
         self.assertEqual("damaged", brief["doctor"]["state"])
 
+    def test_reseed_leaves_a_compact_settings_file_alone(self):
+        """`json.dumps` expands a compact array. An unconditional write reports a diff
+        that nobody made, and a clone shows a dirty tree on its first command."""
+        from harness import session
+        p = os.path.join(self.root, ".claude", "settings.json")
+        text = read_text(p).replace('"enabledMcpjsonServers": [\n    "qmd"\n  ]',
+                                    '"enabledMcpjsonServers": ["qmd"]')
+        write_text(p, text)
+        self._drop_seeded()
+        session.open_brief(self.root, with_rag=False)
+        self.assertEqual(text, read_text(p))
+
     def test_reseed_leaves_the_manifest_alone(self):
         from harness import session
         before = read_text(os.path.join(self.root, ".harness", "manifest.json"))

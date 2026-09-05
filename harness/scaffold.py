@@ -11,6 +11,7 @@ Three kinds of file. `owned` files are the harness's: doctor checks their checks
 adopter moves it across the board.
 `init` never overwrites a file (law 12).
 """
+import copy
 import difflib
 import json
 import os
@@ -81,13 +82,19 @@ def _ensure_lines(path, lines):
 
 
 def _merge_hooks(root, template_json):
-    """Add the harness hooks to an existing settings.json. Keep every other key."""
+    """Add the harness hooks to an existing settings.json. Keep every other key.
+
+    Write the file only when a key changes. `json.dumps` expands a compact array, so an
+    unconditional write reports a diff that nobody made. A clone that runs `init` then
+    shows a dirty tree on the first command (law 12).
+    """
     p = os.path.join(root, ".claude", "settings.json")
     wanted = json.loads(template_json)
     try:
         data = json.loads(read_text(p)) if os.path.exists(p) else {}
     except ValueError as exc:
         raise HarnessError(".claude/settings.json is not valid JSON: %s. Fix it, then run init again." % exc)
+    before = copy.deepcopy(data)
     hooks = data.setdefault("hooks", {})
     added = []
     for event, entries in wanted["hooks"].items():
@@ -106,7 +113,8 @@ def _merge_hooks(root, template_json):
         for rule in wanted.get("permissions", {}).get(key, []):
             if rule not in have:
                 have.append(rule)
-    write_text(p, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+    if data != before:
+        write_text(p, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
     return added
 
 
