@@ -36,9 +36,17 @@ not whether one does. Baseline: 106 tests, 0 red. After the last restore: 106 te
 | M22 | `harness/scaffold.py` | init writes the first task again after the adopter moves it | 1 — `SeedTaskTest.test_init_never_writes_the_first_task_twice` |
 | M23 | `harness/help.py` | help eye hard-codes the eye values | 1 — `HelpTest.test_eye_topic_follows_harness_board_eye` |
 | M24 | `harness/help.py` | help board hard-codes the states | 1 — `HelpTest.test_board_topic_follows_harness_board_states` |
+| M25 | `harness/manifest.py` | only_missing_seeded accepts any problem, whatever its kind | 2 — `ReseedTest.test_a_damaged_owned_file_is_never_only_missing_seeded`, `ReseedTest.test_session_open_never_hides_a_damaged_owned_file` |
+| M26 | `harness/manifest.py` | doctor never marks the kind of a missing file | 2 — `ReseedTest.test_doctor_marks_a_missing_seeded_file`, `ReseedTest.test_session_open_writes_the_missing_seeded_files_again` |
+| M27 | `harness/session.py` | session open ignores a repository that keeps its board out of git | 1 — `ReseedTest.test_session_open_writes_the_missing_seeded_files_again` |
 
 M18 to M24 ran on 2026-09-05 for the `help` command and the seeded first task.
 Baseline 123 tests, 0 red. After the restore: 123 tests, 0 red.
+
+M25 to M27 ran on 2026-09-05 for the reseed that `session open` runs. This repository
+keeps its own board out of git, so a clone lacks every seeded file. Baseline 129 tests,
+0 red. After the restore: 129 tests, 0 red. M25 is the guard that matters: a reseed that
+fires on any damage hides a wrong checksum behind a file that `init` writes again.
 
 `HelpTest.test_overview_names_no_path_that_init_does_not_create` turned red once for
 real on 2026-09-05, with no mutation. `help` named `docs/DESIGN-LAWS.md` and offered

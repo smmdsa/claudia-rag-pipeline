@@ -74,6 +74,9 @@ def open_brief(root, with_rag=True):
         created = scaffold.init(root)
         brief["init"] = created
         doc = manifest.doctor(root)
+    elif doc["state"] == "damaged" and manifest.only_missing_seeded(doc):
+        brief["reseeded"] = scaffold.init(root)
+        doc = manifest.doctor(root)
     brief["doctor"] = doc
     brief["rag"] = rag.health(root) if with_rag else {"level": "skipped", "problems": [], "warnings": []}
 
@@ -131,6 +134,10 @@ def open_text(b):
     lines = []
     if b.get("init"):
         lines.append("INIT: the repository was not initialised. init created %d file(s)." % len(b["init"]["created"]))
+    if b.get("reseeded"):
+        lines.append("RESEED: seeded file(s) were missing. init wrote %d again. "
+                     "This repository keeps its own board out of git."
+                     % len(b["reseeded"]["created"]))
     if b["doctor"]["state"] != "sound":
         lines.append(manifest.doctor_text(b["doctor"]))
     if b["rag"]["level"] == "broken":

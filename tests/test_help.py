@@ -137,3 +137,59 @@ class SeedTaskTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ReseedTest(unittest.TestCase):
+    """A repository can keep its own board out of git. A clone then lacks every seeded
+    file. `session open` writes them again, and it never touches a real defect.
+
+    Mutation proof (docs/MUTATION.md): M25, M26.
+    """
+
+    def setUp(self):
+        self.root = make_repo()
+
+    def tearDown(self):
+        rm(self.root)
+
+    def _drop_seeded(self):
+        for rel in ("docs/ACTIVITY.md", ".harness/targets.json", "work/ROADMAP.md"):
+            os.remove(os.path.join(self.root, *rel.split("/")))
+
+    def test_doctor_marks_a_missing_seeded_file(self):
+        self._drop_seeded()
+        report = manifest.doctor(self.root)
+        self.assertEqual("damaged", report["state"])
+        self.assertTrue(manifest.only_missing_seeded(report))
+        self.assertEqual({"missing-seeded"}, {p.get("kind") for p in report["problems"]})
+
+    def test_a_damaged_owned_file_is_never_only_missing_seeded(self):
+        self._drop_seeded()
+        write_text(os.path.join(self.root, "work", "README.md"), "the adopter edited this\n")
+        report = manifest.doctor(self.root)
+        self.assertFalse(manifest.only_missing_seeded(report))
+
+    def test_session_open_writes_the_missing_seeded_files_again(self):
+        from harness import session
+        self._drop_seeded()
+        brief = session.open_brief(self.root, with_rag=False)
+        self.assertIn("reseeded", brief)
+        self.assertEqual("sound", brief["doctor"]["state"])
+        self.assertIn("RESEED", session.open_text(brief))
+        for rel in ("docs/ACTIVITY.md", ".harness/targets.json", "work/ROADMAP.md"):
+            self.assertTrue(os.path.exists(os.path.join(self.root, *rel.split("/"))))
+
+    def test_session_open_never_hides_a_damaged_owned_file(self):
+        from harness import session
+        write_text(os.path.join(self.root, "work", "README.md"), "the adopter edited this\n")
+        brief = session.open_brief(self.root, with_rag=False)
+        self.assertNotIn("reseeded", brief)
+        self.assertEqual("damaged", brief["doctor"]["state"])
+
+    def test_reseed_leaves_the_manifest_alone(self):
+        from harness import session
+        before = read_text(os.path.join(self.root, ".harness", "manifest.json"))
+        self._drop_seeded()
+        session.open_brief(self.root, with_rag=False)
+        after = read_text(os.path.join(self.root, ".harness", "manifest.json"))
+        self.assertEqual(before, after)

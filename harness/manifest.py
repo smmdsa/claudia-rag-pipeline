@@ -101,10 +101,13 @@ def doctor(root):
     report = {"root": root, "harness_version": VERSION, "state": "sound", "exit": 0,
               "problems": [], "notes": [], "files_checked": 0}
 
-    def damaged(what, fix):
+    def damaged(what, fix, kind=None):
         report["state"] = "damaged"
         report["exit"] = 1
-        report["problems"].append({"what": what, "fix": fix})
+        problem = {"what": what, "fix": fix}
+        if kind:
+            problem["kind"] = kind
+        report["problems"].append(problem)
 
     if sys.version_info < MIN_PYTHON:
         damaged("Python %d.%d runs this harness, and it needs %d.%d or later"
@@ -124,9 +127,11 @@ def doctor(root):
         report["files_checked"] += 1
         abspath = os.path.join(root, relpath)
         if not os.path.exists(abspath):
+            owned = entry.get("kind") == "owned"
             damaged("%s is missing (%s)" % (relpath, entry.get("kind")),
-                    "run `python3 -m harness restore %s`" % relpath if entry.get("kind") == "owned"
-                    else "run `python3 -m harness init` to seed it again")
+                    "run `python3 -m harness restore %s`" % relpath if owned
+                    else "run `python3 -m harness init` to seed it again",
+                    kind="missing-owned" if owned else "missing-seeded")
             continue
         if entry.get("kind") == "owned":
             actual = sha256_file(abspath)
@@ -149,6 +154,18 @@ def doctor(root):
     if empty:
         report["notes"].append("the profile has no %s. Run `python3 -m harness profile ask`." % ", ".join(empty))
     return report
+
+
+def only_missing_seeded(report):
+    """True when every problem is a seeded file that `init` writes again.
+
+    A repository can ignore its own board in git. A clone then lacks every seeded
+    file, and `doctor` turns red on a state that one `init` fixes. This test tells a
+    caller that `init` is the whole fix. An owned file with a wrong checksum, a wrong
+    manifest version, or a missing hook never passes this test.
+    """
+    problems = report.get("problems") or []
+    return bool(problems) and all(p.get("kind") == "missing-seeded" for p in problems)
 
 
 def doctor_text(report):

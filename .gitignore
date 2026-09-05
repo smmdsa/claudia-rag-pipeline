@@ -5,3 +5,20 @@
 __pycache__/
 *.pyc
 board.html
+
+# The board of this repository, and every document that the board produces.
+# This repository is the harness. The work that we do WITH the harness is not the
+# harness, so git tracks the tool and never the dogfood. `python3 -m harness init`
+# writes every file below again from its template, and `session open` does it for
+# you when it finds them missing. `.harness/manifest.json` stays in git: it carries
+# the checksums that prove that this repository still hosts itself.
+work/sprints/*
+!work/sprints/.gitkeep
+work/backlog/TASK-*.md
+work/ROADMAP.md
+docs/sessions/*.md
+docs/ACTIVITY.md
+docs/session-log.md
+.harness/journal.jsonl
+.harness/escalations.md
+.harness/targets.json

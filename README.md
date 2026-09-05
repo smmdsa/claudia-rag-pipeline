@@ -135,6 +135,34 @@ python3 -m harness uninstall        # prints the plan
 python3 -m harness uninstall --yes  # removes the owned files that still match; keeps the rest
 ```
 
-## This repository hosts itself
+## This repository hosts itself, and keeps its own board out of git
 
 `harness init` ran here. `python3 -m harness doctor` measures this repository too.
+
+This repository is the harness. The work that we do WITH the harness is not the
+harness. So git tracks the tool and never the dogfood. `.gitignore` holds the list:
+the sprints, the tasks, the roadmap, the session documents, the session log, the front
+board, the journal, the escalations, and the targets. A pull request carries the tool
+and nothing else.
+
+`.harness/manifest.json` stays in git. It carries the checksums that prove that this
+repository still hosts itself, and `doctor` reads them.
+
+Every ignored file is a `seeded` file. `init` writes each one again from its template,
+and `session open` does it for you:
+
+```bash
+git clone git@github.com:smmdsa/claudia-rag-pipeline.git && cd claudia-rag-pipeline
+python3 -m harness session open   # RESEED: init wrote the missing seeded files again
+python3 -m harness doctor         # exit 0
+```
+
+`session open` writes those files again only when EVERY problem that `doctor` reports
+is a missing seeded file. An owned file with a wrong checksum, a manifest from another
+version, or a missing hook stops the session and prints the fix. `init` never
+overwrites a file, so the reseed never touches your work (law 12).
+
+**This split belongs to this repository alone.** `harness/templates/gitignore.lines`
+does not carry it. An adopter keeps the board in git, next to the code, because that
+is the design: a task moves with `git mv`, and the history shows which commit moved it.
+
