@@ -54,6 +54,7 @@ not whether one does. Baseline: 106 tests, 0 red. After the last restore: 106 te
 | M40 | `harness/board.py` | _append_section writes at the end of the file, and never at the end of the section | 4 — `BoardTest.test_append_section_writes_inside_a_section_in_the_middle`, `BoardTest.test_append_section_accumulates_in_order`, `BoardTest.test_append_section_keeps_a_deeper_header_inside_the_section`, `BoardTest.test_done_writes_the_epic_verdict_under_its_own_header` |
 | M41 | `harness/mcp.py` | an index that started after the agent still reads as a live link | 1 — `LinkTest.test_an_index_that_started_later_is_stale` |
 | M42 | `harness/mcp.py` | the elapsed time of the client is read as an absolute time | 1 — `AncestorTest.test_finds_the_client_above_the_shell` |
+| M43 | `harness/dashboard.py` | the cache is never stale, so the page answers from an old reading | 2 — `DashboardTest.test_a_move_makes_the_cache_stale`, `DashboardTest.test_the_page_reads_a_move_with_no_wait` |
 
 M38 and M39 ran on 2026-09-05, after `./infra/rag/up.sh` refused to run on a stack that
 was already up. Baseline 151 tests, 0 red. After the restore: 151 tests, 0 red.
