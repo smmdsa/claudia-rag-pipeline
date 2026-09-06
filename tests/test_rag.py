@@ -9,6 +9,7 @@ Mutation proof (docs/MUTATION.md): M07 (never-synced as warning) 1 red; M08 (Ind
 import importlib.util
 import json
 import os
+import socket
 import sys
 import threading
 import time
@@ -222,8 +223,8 @@ class UpdateReportTest(unittest.TestCase):
     def test_a_slow_answer_is_not_a_dead_service(self):
         r = rag.request_update(url=self.slow_url, timeout=0.2)
         self.assertEqual(r["reason"], "timeout")
-        self.assertTrue(r["ok"])  # the request arrived, so the re-index started
-        self.assertIn("started", r["note"])
+        self.assertIsNone(r["ok"])  # no answer proves no run, and no dead stack (law 7)
+        self.assertIn("not confirmed", r["note"])
         self.assertIn("rag health", r["note"])
         self.assertNotIn("The stack is down", r["note"])
 
@@ -242,7 +243,8 @@ class UpdateReportTest(unittest.TestCase):
     def test_a_timeout_reaches_the_close_line_and_never_says_FAILED(self):
         r = rag.request_update(url=self.slow_url, timeout=0.2)
         text = session.close_text(close_result(r))
-        self.assertIn("re-index started", text)
+        self.assertIn("re-index not confirmed", text)
+        self.assertNotIn("started", text)
         self.assertNotIn("FAILED", text)
 
     def test_a_run_in_progress_is_not_an_error(self):
@@ -254,6 +256,106 @@ class UpdateReportTest(unittest.TestCase):
         r = rag.health(None, url=self.DEAD, mcp=self.DEAD)
         self.assertEqual(r["exit"], 2)
         self.assertIn("refused", r["problems"][0])
+
+
+class NoRunService(BaseHTTPRequestHandler):
+    """A port that answers, and never with a re-index."""
+
+    CODE, BODY = 500, b"boom"
+
+    def do_POST(self):
+        self.send_response(self.CODE)
+        self.send_header("Content-Length", str(len(self.BODY)))
+        self.end_headers()
+        self.wfile.write(self.BODY)
+
+    def log_message(self, *args):
+        pass
+
+
+class TextService(NoRunService):
+    CODE, BODY = 200, b"<html>not json</html>"
+
+
+def serve(handler):
+    srv = HTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return srv, "http://127.0.0.1:%d" % srv.server_port
+
+
+class TimeoutIsNotStartedTest(unittest.TestCase):
+    """A timeout proves nothing. It must never read as a started run.
+
+    The kernel completes the handshake and buffers the request. A paused container
+    and a stuck process both look like this, and no program reads the bytes. Law 7:
+    a default value must never look like a measurement.
+    """
+
+    def setUp(self):
+        self.sock = socket.socket()
+        self.sock.bind(("127.0.0.1", 0))
+        self.sock.listen(1)  # listen, and never accept
+        self.url = "http://127.0.0.1:%d" % self.sock.getsockname()[1]
+
+    def tearDown(self):
+        self.sock.close()
+
+    def test_a_timeout_with_no_reader_is_not_a_started_run(self):
+        r = rag.request_update(url=self.url, timeout=0.3)
+        self.assertEqual(r["reason"], "timeout")
+        self.assertIsNone(r["ok"])
+        self.assertIn("not confirmed", r["note"])
+        self.assertNotIn("started", r["note"])
+        self.assertNotIn("The stack is down", r["note"])
+        self.assertIn("rag health", r["note"])
+
+    def test_the_close_line_never_says_started_on_a_timeout(self):
+        r = rag.request_update(url=self.url, timeout=0.3)
+        text = session.close_text(close_result(r))
+        self.assertIn("- RAG: re-index not confirmed", text)
+        self.assertNotIn("started", text)
+        self.assertNotIn("FAILED", text)
+
+    def test_the_canary_names_a_timeout_and_never_calls_the_stack_down(self):
+        real = rag.http_json
+        rag.http_json = lambda u, method="GET", timeout=4: real(u, method=method, timeout=0.3)
+        try:
+            r = rag.health(None, url=self.url, mcp=self.url)
+        finally:
+            rag.http_json = real
+        self.assertEqual(r["exit"], 2)
+        self.assertIn("gave no answer in 6 s", r["problems"][0])
+        self.assertNotIn("The stack is down", r["problems"][0])
+
+
+class AnsweredIsNotDownTest(unittest.TestCase):
+    """A service that answers is not a service that is down.
+
+    Measured on 2026-09-06: the state port pointed at the MCP port returns HTTP 404
+    while every container is healthy. "Start the stack" is the wrong instruction there.
+    """
+
+    def report(self, handler):
+        srv, url = serve(handler)
+        try:
+            return rag.request_update(url=url)
+        finally:
+            srv.shutdown()
+            srv.server_close()
+
+    def test_an_http_error_is_an_answer(self):
+        r = self.report(NoRunService)
+        self.assertFalse(r["ok"])
+        self.assertEqual(r["reason"], "http 500")
+        self.assertIn("answered", r["note"])
+        self.assertNotIn("The stack is down", r["note"])
+        self.assertNotIn("stack start", r["note"])
+
+    def test_a_body_that_is_not_json_is_an_answer(self):
+        r = self.report(TextService)
+        self.assertFalse(r["ok"])
+        self.assertIn("answered", r["note"])
+        self.assertNotIn("The stack is down", r["note"])
 
 
 def load_agent():
@@ -431,6 +533,28 @@ class AgentStartUpdateTest(unittest.TestCase):
         agent.run_update("test")
         self.assertEqual(seen, [{"running": True, "recorded": True}])
         self.assertFalse(agent.running)
+        self.assertEqual(calls, ["qmd update", "qmd embed"])
+
+    def test_a_thread_that_never_starts_frees_the_reservation(self):
+        # A reservation with no run blocks every later run until a container restart.
+        agent, calls = fake_agent([{"chunks": 264, "orphanedChunks": 2}])
+
+        class BadThread:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def start(self):
+                raise RuntimeError("can't start new thread")
+
+        real = threading.Thread
+        agent.threading.Thread = BadThread
+        try:
+            with self.assertRaises(RuntimeError):
+                agent.start_update("http")
+        finally:
+            agent.threading.Thread = real
+        self.assertFalse(agent.running)
+        self.assertNotIn("skipped", agent.run_update("timer"))
         self.assertEqual(calls, ["qmd update", "qmd embed"])
 
     def test_run_update_still_answers_with_the_result(self):

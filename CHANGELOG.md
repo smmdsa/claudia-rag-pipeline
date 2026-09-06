@@ -70,11 +70,19 @@ always meant: you talk to your agent, and the agent runs the harness.
   `POST /update` now starts the run in a thread and answers at once. Measured after
   the fix: 0.004193 s, and the run continued. `harness/rag.py` `http_json` now returns
   `(data, reason)`, and `call_reason` names a timeout, a refused connection, an HTTP
-  code, and a body that is not JSON. A timeout reports `ok: True` and the note
-  "started, and the answer did not arrive in 8 s", because the request arrived and the
-  container holds the run. A refused connection reports `ok: False` and names
-  `python3 -m harness stack start`. The canary and the close line carry the reason.
-  M49 to M53.
+  code, and a body that is not JSON.
+
+  A timeout reports `ok: None` and the note "not confirmed", and the CLI exits 1. A
+  timeout proves nothing. Measured on 2026-09-06: a blackholed address and a socket that
+  listens and never accepts both time out, and no service took either request. The
+  endpoint answers in 0.004193 s, so a timeout names an abnormal stack and never a slow
+  embed. A refused connection reports `ok: False` and names `python3 -m harness stack
+  start`. An HTTP error, or a body that is not JSON, proves that a service answered, so
+  that reports `ok: False` and names `python3 -m harness ports`. Measured: the state port
+  pointed at the MCP port returns HTTP 404 while every container is healthy.
+
+  `start_update` frees the reservation when the thread does not start. A reservation with
+  no run blocks every later run until a container restart. M49 to M57.
 
 - **The board page answered from a reading up to 5 minutes old.** The user closed a
   task at 17:33 on 2026-09-05 and read TODO on the page. The tree held the task in

@@ -192,9 +192,16 @@ def start_update(trigger):
     healthy service as a dead one. The run continues after this answer, and
     `GET /state` carries the result in `agent.lastRun`.
     """
+    global running
     if not reserve():
         return {"skipped": True, "reason": "a run is in progress"}
-    threading.Thread(target=run_reserved, args=(trigger,), daemon=True).start()
+    try:
+        threading.Thread(target=run_reserved, args=(trigger,), daemon=True).start()
+    except RuntimeError:
+        # No thread, no run. A reservation with no run blocks every run until a restart.
+        with _lock:
+            running = False
+        raise
     return {"started": True, "trigger": trigger, "startedAt": now_iso()}
 
 

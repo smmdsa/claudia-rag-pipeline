@@ -93,7 +93,7 @@ Session closed.
 - front board: <fronts moved>
 - journal: <n> verdict(s) closed, <n> observation(s)
 - eye queue: <n> task(s) await a verdict
-- RAG: re-index started | skipped: <reason> | not re-indexed (<reason>) | FAILED (<reason>)
+- RAG: re-index started | skipped: <reason> | not confirmed: <reason> | not re-indexed (<reason>) | FAILED (<reason>)
 - memory: updated | no change
 - repository: <n> file(s) not committed
 ```

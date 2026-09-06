@@ -65,6 +65,10 @@ not whether one does. Baseline: 106 tests, 0 red. After the last restore: 106 te
 | M51 | `infra/rag/agent/agent.py` | `POST /update` answers after the steps run, so a 60 s embed times out the client | 2 — `AgentStartUpdateTest.test_start_update_answers_before_the_steps_finish`, `AgentStartUpdateTest.test_a_second_start_never_runs_two_updates_at_once` |
 | M52 | `infra/rag/agent/agent.py` | the reservation is released before the run is recorded | 1 — `AgentStartUpdateTest.test_the_record_lands_before_the_reservation_is_released` |
 | M53 | `infra/rag/agent/agent.py` | `start_update` never checks the reservation, so two runs embed at once | 1 — `AgentStartUpdateTest.test_a_second_start_never_runs_two_updates_at_once` |
+| M54 | `harness/rag.py` | a timeout reads as a started run, so the close reports work that nobody proved | 2 — `TimeoutIsNotStartedTest.test_a_timeout_with_no_reader_is_not_a_started_run`, `UpdateReportTest.test_a_slow_answer_is_not_a_dead_service` |
+| M55 | `harness/rag.py` | an HTTP error and a body that is not JSON read as a dead stack | 2 — `AnsweredIsNotDownTest.test_an_http_error_is_an_answer`, `AnsweredIsNotDownTest.test_a_body_that_is_not_json_is_an_answer` |
+| M56 | `harness/rag.py` | the canary calls a slow index a dead stack, and tells the user to start it | 1 — `TimeoutIsNotStartedTest.test_the_canary_names_a_timeout_and_never_calls_the_stack_down` |
+| M57 | `infra/rag/agent/agent.py` | the reservation leaks when the thread does not start, so every later run is skipped | 1 — `AgentStartUpdateTest.test_a_thread_that_never_starts_frees_the_reservation` |
 
 M38 and M39 ran on 2026-09-05, after `./infra/rag/up.sh` refused to run on a stack that
 was already up. Baseline 151 tests, 0 red. After the restore: 151 tests, 0 red.
