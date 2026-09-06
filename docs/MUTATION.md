@@ -56,6 +56,19 @@ not whether one does. Baseline: 106 tests, 0 red. After the last restore: 106 te
 | M42 | `harness/mcp.py` | the elapsed time of the client is read as an absolute time | 1 — `AncestorTest.test_finds_the_client_above_the_shell` |
 | M43 | `harness/dashboard.py` | the cache is never stale, so the page answers from an old reading | 2 — `DashboardTest.test_a_move_makes_the_cache_stale`, `DashboardTest.test_the_page_reads_a_move_with_no_wait` |
 | M44 | `harness/ports.py` | port_for ignores the env file that docker compose reads | 2 — `PortsTest.test_port_for_reads_the_env_file_that_docker_compose_reads`, `PortsTest.test_stack_ports_check_the_port_that_docker_publishes` |
+| M45 | `infra/rag/agent/agent.py` | the agent never runs the cleanup, so the orphan rate grows all day | 1 — `AgentCleanupTest.test_cleanup_runs_when_the_rate_passes_the_threshold` |
+| M46 | `infra/rag/agent/agent.py` | the agent vacuums the database on every update, threshold or not | 2 — `AgentCleanupTest.test_a_quiet_day_costs_no_cleanup`, `AgentCleanupTest.test_a_rate_that_nobody_measured_is_not_a_rate_of_zero` |
+| M47 | `infra/rag/agent/agent.py` | an index that cannot answer reads as a clean index, and 0.0 looks measured | 2 — `AgentCleanupTest.test_a_rate_that_nobody_measured_is_not_a_rate_of_zero`, `AgentCleanupTest.test_an_empty_index_never_divides_by_zero` |
+| M48 | `infra/rag/agent/agent.py` | a failed embed still reaches the cleanup, which removes the vectors it did not write | 1 — `AgentCleanupTest.test_a_failed_embed_stops_before_the_cleanup` |
+| M49 | `harness/rag.py` | a timeout reads as a refused connection, so a slow index is a dead service | 3 — `UpdateReportTest.test_http_json_names_a_timeout_and_a_refusal_apart`, `UpdateReportTest.test_a_slow_answer_is_not_a_dead_service`, `UpdateReportTest.test_a_timeout_reaches_the_close_line_and_never_says_FAILED` |
+| M50 | `harness/rag.py` | a timeout reports `ok: False`, so the close prints FAILED for a healthy stack | 2 — `UpdateReportTest.test_a_slow_answer_is_not_a_dead_service`, `UpdateReportTest.test_a_timeout_reaches_the_close_line_and_never_says_FAILED` |
+| M51 | `infra/rag/agent/agent.py` | `POST /update` answers after the steps run, so a 60 s embed times out the client | 2 — `AgentStartUpdateTest.test_start_update_answers_before_the_steps_finish`, `AgentStartUpdateTest.test_a_second_start_never_runs_two_updates_at_once` |
+| M52 | `infra/rag/agent/agent.py` | the reservation is released before the run is recorded | 1 — `AgentStartUpdateTest.test_the_record_lands_before_the_reservation_is_released` |
+| M53 | `infra/rag/agent/agent.py` | `start_update` never checks the reservation, so two runs embed at once | 1 — `AgentStartUpdateTest.test_a_second_start_never_runs_two_updates_at_once` |
+| M54 | `harness/rag.py` | a timeout reads as a started run, so the close reports work that nobody proved | 2 — `TimeoutIsNotStartedTest.test_a_timeout_with_no_reader_is_not_a_started_run`, `UpdateReportTest.test_a_slow_answer_is_not_a_dead_service` |
+| M55 | `harness/rag.py` | an HTTP error and a body that is not JSON read as a dead stack | 2 — `AnsweredIsNotDownTest.test_an_http_error_is_an_answer`, `AnsweredIsNotDownTest.test_a_body_that_is_not_json_is_an_answer` |
+| M56 | `harness/rag.py` | the canary calls a slow index a dead stack, and tells the user to start it | 1 — `TimeoutIsNotStartedTest.test_the_canary_names_a_timeout_and_never_calls_the_stack_down` |
+| M57 | `infra/rag/agent/agent.py` | the reservation leaks when the thread does not start, so every later run is skipped | 1 — `AgentStartUpdateTest.test_a_thread_that_never_starts_frees_the_reservation` |
 
 M38 and M39 ran on 2026-09-05, after `./infra/rag/up.sh` refused to run on a stack that
 was already up. Baseline 151 tests, 0 red. After the restore: 151 tests, 0 red.
