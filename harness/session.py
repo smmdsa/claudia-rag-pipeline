@@ -342,7 +342,8 @@ def close_text(r):
     if rg.get("ok") is None:
         lines.append("- RAG: not re-indexed (%s)" % rg.get("note"))
     elif rg.get("ok"):
-        lines.append("- RAG: re-index requested")
+        # The note carries the outcome. A timeout says "started" and names `rag health`.
+        lines.append("- RAG: re-index %s" % (rg.get("note") or "requested"))
     else:
         lines.append("- RAG: re-index FAILED (%s)" % rg.get("note"))
     lines.append("- memory: update the durable memory by hand when the session produced a lesson")

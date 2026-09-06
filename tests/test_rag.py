@@ -11,13 +11,20 @@ import json
 import os
 import sys
 import threading
+import time
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from tests.helpers import PRODUCT, make_repo, rm
 
-from harness import profile, rag
+from harness import profile, rag, session
 from harness.util import read_text
+
+
+def close_result(rag_result):
+    """The smallest `session.close` result that `close_text` reads."""
+    return {"doc": "docs/sessions/x.md", "log": "docs/session-log.md", "journal": {},
+            "observations": 0, "rag": rag_result, "awaiting_verdict": 0, "qa_closed": 0}
 
 STATE = {}
 
@@ -141,6 +148,114 @@ class RagCanaryTest(unittest.TestCase):
         self.assertFalse(rag.request_update(url="http://127.0.0.1:1")["ok"])
 
 
+SLOW_S = 1.5
+
+
+class SlowHandler(BaseHTTPRequestHandler):
+    """A service that takes the request and answers late. It is healthy, not dead."""
+
+    def do_POST(self):
+        time.sleep(SLOW_S)
+        body = b'{"started": true}'
+        try:
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        except OSError:
+            pass  # the client timed out and closed. That is the case under test.
+
+    def log_message(self, *args):
+        pass
+
+
+class SkipHandler(BaseHTTPRequestHandler):
+    """A service that already runs. It answers at once and refuses a second run."""
+
+    def do_POST(self):
+        body = json.dumps({"skipped": True, "reason": "a run is in progress"}).encode()
+        self.send_response(200)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, *args):
+        pass
+
+
+class UpdateReportTest(unittest.TestCase):
+    """THE regression of TASK-0013.
+
+    On 2026-09-05 `session close` printed "the state service did not answer" while the
+    service answered every GET in 0.03 s. `qmd embed` took 59415 ms and the client gave
+    up at 8 s. A timeout and a refused connection produced the same word.
+    """
+
+    DEAD = "http://127.0.0.1:1"  # port 1 holds no service on any machine
+
+    @classmethod
+    def setUpClass(cls):
+        cls.slow = HTTPServer(("127.0.0.1", 0), SlowHandler)
+        cls.slow_url = "http://127.0.0.1:%d" % cls.slow.server_port
+        threading.Thread(target=cls.slow.serve_forever, daemon=True).start()
+        cls.busy = HTTPServer(("127.0.0.1", 0), SkipHandler)
+        cls.busy_url = "http://127.0.0.1:%d" % cls.busy.server_port
+        threading.Thread(target=cls.busy.serve_forever, daemon=True).start()
+        cls.fast = HTTPServer(("127.0.0.1", 0), Handler)
+        cls.fast_url = "http://127.0.0.1:%d" % cls.fast.server_port
+        threading.Thread(target=cls.fast.serve_forever, daemon=True).start()
+
+    @classmethod
+    def tearDownClass(cls):
+        for srv in (cls.slow, cls.busy, cls.fast):
+            srv.shutdown()
+            srv.server_close()
+
+    def test_http_json_names_a_timeout_and_a_refusal_apart(self):
+        data, reason = rag.http_json(self.slow_url + "/update", method="POST", timeout=0.2)
+        self.assertIsNone(data)
+        self.assertEqual(reason, "timeout")
+        data, reason = rag.http_json(self.DEAD + "/update", method="POST", timeout=2)
+        self.assertIsNone(data)
+        self.assertEqual(reason, "refused")
+
+    def test_a_slow_answer_is_not_a_dead_service(self):
+        r = rag.request_update(url=self.slow_url, timeout=0.2)
+        self.assertEqual(r["reason"], "timeout")
+        self.assertTrue(r["ok"])  # the request arrived, so the re-index started
+        self.assertIn("started", r["note"])
+        self.assertIn("rag health", r["note"])
+        self.assertNotIn("The stack is down", r["note"])
+
+    def test_a_refused_connection_is_a_dead_service(self):
+        r = rag.request_update(url=self.DEAD, timeout=2)
+        self.assertFalse(r["ok"])
+        self.assertEqual(r["reason"], "refused")
+        self.assertIn("refused", r["note"])
+        self.assertIn("The stack is down", r["note"])
+
+    def test_a_healthy_stack_reports_started(self):
+        r = rag.request_update(url=self.fast_url)
+        self.assertEqual((r["ok"], r["reason"], r["note"]), (True, None, "started"))
+        self.assertIn("- RAG: re-index started", session.close_text(close_result(r)))
+
+    def test_a_timeout_reaches_the_close_line_and_never_says_FAILED(self):
+        r = rag.request_update(url=self.slow_url, timeout=0.2)
+        text = session.close_text(close_result(r))
+        self.assertIn("re-index started", text)
+        self.assertNotIn("FAILED", text)
+
+    def test_a_run_in_progress_is_not_an_error(self):
+        r = rag.request_update(url=self.busy_url)
+        self.assertTrue(r["ok"])
+        self.assertIn("a run is in progress", r["note"])
+
+    def test_the_canary_names_why_the_state_did_not_answer(self):
+        r = rag.health(None, url=self.DEAD, mcp=self.DEAD)
+        self.assertEqual(r["exit"], 2)
+        self.assertIn("refused", r["problems"][0])
+
+
 def load_agent():
     path = os.path.join(PRODUCT, "harness", "templates", "infra", "rag", "agent", "agent.py")
     spec = importlib.util.spec_from_file_location("rag_agent", path)
@@ -183,6 +298,26 @@ class AgentParserTest(unittest.TestCase):
             rm(root)
 
 
+def fake_agent(totals, codes=None):
+    """Load the agent, and replace `sh` and `read_index` with fakes.
+
+    `totals` is a list. Each call of `read_index` takes the next entry, so a test
+    can measure the rate before the cleanup and after it.
+    """
+    agent = load_agent()
+    calls = []
+    left = list(totals)
+
+    def fake_sh(args):
+        calls.append(" ".join(args))
+        code = (codes or {}).get(args[1], 0)
+        return {"cmd": " ".join(args), "code": code, "ms": 1, "tail": [], "text": ""}
+
+    agent.sh = fake_sh
+    agent.read_index = lambda: ({}, left.pop(0) if len(left) > 1 else left[0])
+    return agent, calls
+
+
 class AgentCleanupTest(unittest.TestCase):
     """`qmd update` leaves the old vector of a changed document behind.
 
@@ -191,24 +326,7 @@ class AgentCleanupTest(unittest.TestCase):
     cleanup itself, and only when the rate passes the threshold.
     """
 
-    def agent_with(self, totals, codes=None):
-        """Load the agent, and replace `sh` and `read_index` with fakes.
-
-        `totals` is a list. Each call of `read_index` takes the next entry, so a test
-        can measure the rate before the cleanup and after it.
-        """
-        agent = load_agent()
-        calls = []
-        left = list(totals)
-
-        def fake_sh(args):
-            calls.append(" ".join(args))
-            code = (codes or {}).get(args[1], 0)
-            return {"cmd": " ".join(args), "code": code, "ms": 1, "tail": [], "text": ""}
-
-        agent.sh = fake_sh
-        agent.read_index = lambda: ({}, left.pop(0) if len(left) > 1 else left[0])
-        return agent, calls
+    agent_with = staticmethod(fake_agent)
 
     def test_cleanup_runs_when_the_rate_passes_the_threshold(self):
         agent, calls = self.agent_with([{"chunks": 696, "orphanedChunks": 434},
@@ -255,6 +373,73 @@ class AgentCleanupTest(unittest.TestCase):
                                        codes={"update": 1})
         agent.run_update("test")
         self.assertEqual(calls, ["qmd update"])
+
+
+class AgentStartUpdateTest(unittest.TestCase):
+    """`POST /update` must answer before the steps run.
+
+    Measured on 2026-09-05: `qmd embed` took 59415 ms and the client gave up at 8 s.
+    The endpoint that answers last cannot be reached by a client that waits.
+    """
+
+    def slow_agent(self, seconds=1.5):
+        agent, calls = fake_agent([{"chunks": 264, "orphanedChunks": 2}])
+        inner = agent.sh
+        started = threading.Event()
+
+        def slow_sh(args):
+            started.set()
+            time.sleep(seconds)
+            return inner(args)
+
+        agent.sh = slow_sh
+        return agent, calls, started
+
+    def test_start_update_answers_before_the_steps_finish(self):
+        agent, calls, started = self.slow_agent()
+        t0 = time.time()
+        answer = agent.start_update("http")
+        elapsed = time.time() - t0
+        self.assertTrue(answer["started"])
+        self.assertLess(elapsed, 0.5)  # the first step alone takes 1.5 s
+        self.assertTrue(started.wait(2))
+        self.assertTrue(agent.running)  # the run holds the reservation
+        self.assertIsNone(agent.last_run)  # and has written no record yet
+
+    def test_a_second_start_never_runs_two_updates_at_once(self):
+        agent, calls, started = self.slow_agent()
+        self.assertTrue(agent.start_update("http")["started"])
+        self.assertTrue(started.wait(2))
+        second = agent.start_update("http")
+        self.assertTrue(second["skipped"])
+        self.assertEqual(second["reason"], "a run is in progress")
+        self.assertNotIn("started", second)
+
+    def test_the_record_lands_before_the_reservation_is_released(self):
+        # A reader that sees `running: false` must never read the record of the run
+        # before this one. `runs.insert` reports the state at the moment of the write,
+        # so a release that happens first turns this red with no sleep and no race.
+        agent, calls = fake_agent([{"chunks": 264, "orphanedChunks": 2}])
+        seen = []
+
+        class Watch(list):
+            def insert(self, i, item):
+                seen.append({"running": agent.running, "recorded": agent.last_run is not None})
+                list.insert(self, i, item)
+
+        agent.runs = Watch()
+        agent.run_update("test")
+        self.assertEqual(seen, [{"running": True, "recorded": True}])
+        self.assertFalse(agent.running)
+        self.assertEqual(calls, ["qmd update", "qmd embed"])
+
+    def test_run_update_still_answers_with_the_result(self):
+        # The timer and the startup call keep the synchronous form.
+        agent, calls = fake_agent([{"chunks": 264, "orphanedChunks": 2}])
+        run = agent.run_update("timer")
+        self.assertEqual(run["trigger"], "timer")
+        self.assertTrue(run["ok"])
+        self.assertFalse(agent.running)
 
 
 class RagConfigTest(unittest.TestCase):

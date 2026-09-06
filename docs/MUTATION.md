@@ -60,6 +60,11 @@ not whether one does. Baseline: 106 tests, 0 red. After the last restore: 106 te
 | M46 | `infra/rag/agent/agent.py` | the agent vacuums the database on every update, threshold or not | 2 — `AgentCleanupTest.test_a_quiet_day_costs_no_cleanup`, `AgentCleanupTest.test_a_rate_that_nobody_measured_is_not_a_rate_of_zero` |
 | M47 | `infra/rag/agent/agent.py` | an index that cannot answer reads as a clean index, and 0.0 looks measured | 2 — `AgentCleanupTest.test_a_rate_that_nobody_measured_is_not_a_rate_of_zero`, `AgentCleanupTest.test_an_empty_index_never_divides_by_zero` |
 | M48 | `infra/rag/agent/agent.py` | a failed embed still reaches the cleanup, which removes the vectors it did not write | 1 — `AgentCleanupTest.test_a_failed_embed_stops_before_the_cleanup` |
+| M49 | `harness/rag.py` | a timeout reads as a refused connection, so a slow index is a dead service | 3 — `UpdateReportTest.test_http_json_names_a_timeout_and_a_refusal_apart`, `UpdateReportTest.test_a_slow_answer_is_not_a_dead_service`, `UpdateReportTest.test_a_timeout_reaches_the_close_line_and_never_says_FAILED` |
+| M50 | `harness/rag.py` | a timeout reports `ok: False`, so the close prints FAILED for a healthy stack | 2 — `UpdateReportTest.test_a_slow_answer_is_not_a_dead_service`, `UpdateReportTest.test_a_timeout_reaches_the_close_line_and_never_says_FAILED` |
+| M51 | `infra/rag/agent/agent.py` | `POST /update` answers after the steps run, so a 60 s embed times out the client | 2 — `AgentStartUpdateTest.test_start_update_answers_before_the_steps_finish`, `AgentStartUpdateTest.test_a_second_start_never_runs_two_updates_at_once` |
+| M52 | `infra/rag/agent/agent.py` | the reservation is released before the run is recorded | 1 — `AgentStartUpdateTest.test_the_record_lands_before_the_reservation_is_released` |
+| M53 | `infra/rag/agent/agent.py` | `start_update` never checks the reservation, so two runs embed at once | 1 — `AgentStartUpdateTest.test_a_second_start_never_runs_two_updates_at_once` |
 
 M38 and M39 ran on 2026-09-05, after `./infra/rag/up.sh` refused to run on a stack that
 was already up. Baseline 151 tests, 0 red. After the restore: 151 tests, 0 red.

@@ -55,6 +55,27 @@ always meant: you talk to your agent, and the agent runs the harness.
 
 ### Fixed
 
+- **`session close` called a healthy search index a dead service.** Measured on
+  2026-09-05 at 19:23 and again at 21:22: the close printed "the state service at
+  http://127.0.0.1:8411 did not answer". `GET /state` answered HTTP 200 in 0.0277 s
+  seconds later, and all three containers reported healthy.
+
+  Two defects produced one wrong sentence. `POST /update` ran `qmd update`, `qmd embed`
+  and `qmd cleanup` before it answered, and the client gave up at 8 s. Measured embed
+  times on this CPU: 12838 ms, 16455 ms, 59415 ms, and 161136 ms after a restart. The
+  client waited for 8 and the work took up to 161. Second, `http_json` mapped every
+  exception to `None`, so a timeout and a refused connection printed the same words.
+  Law 3: the client saw no answer, and that did not prove that the service was down.
+
+  `POST /update` now starts the run in a thread and answers at once. Measured after
+  the fix: 0.004193 s, and the run continued. `harness/rag.py` `http_json` now returns
+  `(data, reason)`, and `call_reason` names a timeout, a refused connection, an HTTP
+  code, and a body that is not JSON. A timeout reports `ok: True` and the note
+  "started, and the answer did not arrive in 8 s", because the request arrived and the
+  container holds the run. A refused connection reports `ok: False` and names
+  `python3 -m harness stack start`. The canary and the close line carry the reason.
+  M49 to M53.
+
 - **The board page answered from a reading up to 5 minutes old.** The user closed a
   task at 17:33 on 2026-09-05 and read TODO on the page. The tree held the task in
   `done/`. `infra/board/Dockerfile` runs `dashboard serve --rebuild-every 300`, so the
