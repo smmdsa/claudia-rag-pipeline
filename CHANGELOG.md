@@ -55,6 +55,17 @@ always meant: you talk to your agent, and the agent runs the harness.
 
 ### Fixed
 
+- **Git flag ordering bypassed generated history guards.** The permission
+  template matches command prefixes, so `git commit -q --amend` and
+  `git push origin main --force` did not match their intended deny entries.
+  `pre-bash` now parses each shell segment and denies amend and forced-push
+  operations for all supported command prefixes and Git flag orders. This closes issue 3.
+
+- **`session open` paired the latest journal entry with the wrong document.**
+  The slug came from the journal while the document came from alphabetical
+  filename order. The document now comes from that same slug. A missing or malformed
+  slug reports no document instead of substituting unrelated instructions. This
+  closes issue 4.
 - **`session close` called a healthy search index a dead service.** Measured on
   2026-09-05 at 19:23 and again at 21:22: the close printed "the state service at
   http://127.0.0.1:8411 did not answer". `GET /state` answered HTTP 200 in 0.0277 s

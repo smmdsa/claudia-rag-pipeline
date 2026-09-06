@@ -5,7 +5,6 @@ session document with the measured fields filled. The agent writes the narrative
 `close` checks the document, updates the index, appends the journal line, and asks
 the RAG stack to re-index. Both `open` and `close` run with no RAG stack.
 """
-import glob
 import os
 import re
 import time
@@ -63,9 +62,19 @@ def _git(root, args):
     return out.strip() if code == 0 else None
 
 
-def last_session_doc(root):
-    files = sorted(glob.glob(os.path.join(root, SESSIONS, "*.md")))
-    return files[-1] if files else None
+def last_session_doc(root, last=None):
+    """Return the document named by the last journal entry.
+
+    A session slug and its document form one record. Filename order can pair current
+    journal metadata with an older handoff. The function reports a malformed or
+    missing document as absent. It does not substitute unrelated instructions.
+    """
+    last = last if last is not None else journal.last_session(root)
+    slug = last.get("slug") if last else None
+    if not isinstance(slug, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", slug):
+        return None
+    path = os.path.join(root, SESSIONS, slug + ".md")
+    return path if os.path.isfile(path) else None
 
 
 # After `docker compose start` a service needs a moment to answer. Three tries over
@@ -104,7 +113,8 @@ def open_brief(root, with_rag=True, with_stack=True):
 
     last = journal.last_session(root)
     brief["last_session"] = last
-    brief["last_doc"] = os.path.relpath(last_session_doc(root), root) if last_session_doc(root) else None
+    last_doc = last_session_doc(root, last)
+    brief["last_doc"] = os.path.relpath(last_doc, root) if last_doc else None
     elapsed = None
     if last and last.get("ts"):
         try:

@@ -101,6 +101,35 @@ class SessionTest(unittest.TestCase):
         self.assertEqual(b["elapsed_seconds"], 26 * 3600)
         self.assertIn("Closed 1 d ago", session.open_text(b))
 
+    def test_open_uses_the_document_named_by_the_last_journal_slug(self):
+        sessions = os.path.join(self.root, "docs", "sessions")
+        write_text(os.path.join(sessions, "z-older.md"), "old instructions\n")
+        write_text(os.path.join(sessions, "a-latest.md"), "current instructions\n")
+        journal.append(self.root, {
+            "kind": "session", "ts": "2026-09-05T10:00:00+00:00", "slug": "z-older",
+        })
+        journal.append(self.root, {
+            "kind": "session", "ts": "2026-09-05T11:00:00+00:00", "slug": "a-latest",
+        })
+
+        b = session.open_brief(self.root, with_rag=False)
+
+        self.assertEqual(b["last_doc"], "docs/sessions/a-latest.md")
+        self.assertIn("Last session: a-latest", session.open_text(b))
+        self.assertIn("Document: docs/sessions/a-latest.md", session.open_text(b))
+
+    def test_open_does_not_substitute_an_unrelated_document(self):
+        sessions = os.path.join(self.root, "docs", "sessions")
+        write_text(os.path.join(sessions, "z-older.md"), "old instructions\n")
+        journal.append(self.root, {
+            "kind": "session", "ts": "2026-09-05T11:00:00+00:00", "slug": "missing",
+        })
+
+        b = session.open_brief(self.root, with_rag=False)
+
+        self.assertIsNone(b["last_doc"])
+        self.assertIn("Document: (none)", session.open_text(b))
+
     def test_cli_session_open_json(self):
         code, out, err = cli(self.root, "session", "open", "--no-rag", "--json")
         self.assertEqual(code, 0, err)

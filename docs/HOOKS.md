@@ -45,6 +45,8 @@ Common fields: `session_id`, `hook_event_name`, `cwd`.
   `.harness/board.sqlite`; any write to `.harness/targets.json`. An `Edit` of an
   existing task file passes: the agent writes the sections of a task.
 - `pre-bash` denies `mv`, `cp`, `rm`, `rmdir`, `git mv`, and `git rm` on `work/`.
+  It parses each shell segment. It denies `git commit --amend`, forced pushes, and
+  push operations that remove a remote ref. Git flag order does not bypass this check.
 - `post-work` runs `check` after a change under `work/`, or after any Bash command
   that names `work/` or the harness. Red returns exit 2 with the errors on stderr.
 - `stop` reports the tasks that wait for a human verdict and the sprints past their
