@@ -146,6 +146,90 @@ class HookTest(unittest.TestCase):
             )
             self.assertEqual(out, "", cmd)
 
+    def test_pre_bash_allows_a_command_that_a_line_reader_cannot_lex(self):
+        """THE regression of the merge of PR 5.
+
+        The guard read the command one line at a time. A line is not a unit of shell
+        syntax: a heredoc body, a quoted string, and a `python3 -c` program all cross
+        a newline. The reader cut them, counted an odd number of quotes, and denied.
+
+        Measured on 2026-09-06: `git commit -F -` with the word `doesn't` in the
+        message denied the commit, and the deny said "Remove the protected
+        operation" for a command that carried none.
+        """
+        for cmd in (
+            "git commit -F - <<'EOF'\nfix: the agent doesn't guess\nEOF",
+            "git status # don't worry",
+            "cat <<'EOF' > f\nit's fine\nEOF",
+            'python3 - <<PY\ns = """doc"""\nprint("it\'s fine")\nPY',
+            'python3 -c "\nprint(1)\n"',
+            # A heredoc body is data for another program. The shell never runs it.
+            "cat <<'EOF'\ngit push --force\nEOF",
+        ):
+            _, out, _ = run_hook(
+                self.root, "pre-bash", {"tool_name": "Bash", "tool_input": {"command": cmd}}
+            )
+            self.assertEqual(out, "", cmd)
+
+    def test_pre_bash_still_denies_a_protected_command_that_carries_a_heredoc(self):
+        # The heredoc marker stays on its line, so the command is still read.
+        for cmd in ("git push --force <<X\n'\nX", "git push --force # '", "echo 'unbalanced"):
+            _, out, _ = run_hook(
+                self.root, "pre-bash", {"tool_name": "Bash", "tool_input": {"command": cmd}}
+            )
+            self.assertEqual(decision(out), "deny", cmd)
+
+    def test_pre_bash_reads_a_command_under_a_comment_on_an_earlier_line(self):
+        """A comment on one line must never hide a command on the next.
+
+        The first form of the comment stripper searched the whole command and cut
+        from the first `#` to the end of the text. Measured on 2026-09-06: `echo # '`
+        on line 1 removed `git push --force` on line 2, and the guard allowed it.
+        Copilot named this on PR 8.
+        """
+        for cmd in (
+            "echo # '\ngit push --force",
+            "echo # '\ngit commit --amend",
+            "ls # it's here\ngit push -f origin main",
+            "true ;# '\ngit push --force",
+        ):
+            _, out, _ = run_hook(
+                self.root, "pre-bash", {"tool_name": "Bash", "tool_input": {"command": cmd}}
+            )
+            self.assertEqual(decision(out), "deny", cmd)
+
+    def test_pre_bash_strips_every_heredoc_tag_shape(self):
+        # A quoted tag holds any character. An unquoted tag takes a dash and a dot.
+        for cmd in (
+            "cat <<'END-OF-FILE' > f\nit's fine\nEND-OF-FILE",
+            "cat <<END-OF-FILE > f\nit's fine\nEND-OF-FILE",
+            "cat <<EOF.txt > f\nit's fine\nEOF.txt",
+            'cat <<"EOF-1" > f\nit\'s fine\nEOF-1',
+            # An arithmetic shift opens no heredoc. A tag that starts with a digit
+            # would read `$((1<<2))` as a heredoc that opens tag `2`.
+            "echo $((1<<2))",
+        ):
+            _, out, _ = run_hook(
+                self.root, "pre-bash", {"tool_name": "Bash", "tool_input": {"command": cmd}}
+            )
+            self.assertEqual(out, "", cmd)
+
+    def test_pre_bash_reads_a_command_below_a_heredoc_it_cannot_close(self):
+        """A tag that the stripper reads wrongly must never erase a later command.
+
+        The stripper drops the body only when it finds the terminator. A missing
+        terminator keeps every line, so the guard still reads what the shell runs.
+        """
+        for cmd in (
+            "cat <<EOF.x\nbody\nEOF.x\ngit push --force",
+            "cat <<1EOF\nbody\n1EOF\ngit push --force",
+            "cat <<EOF\nbody with no terminator\ngit push --force",
+        ):
+            _, out, _ = run_hook(
+                self.root, "pre-bash", {"tool_name": "Bash", "tool_input": {"command": cmd}}
+            )
+            self.assertEqual(decision(out), "deny", cmd)
+
     def test_pre_bash_names_the_protected_push_argument(self):
         _, out, _ = run_hook(
             self.root, "pre-bash", {"tool_name": "Bash", "tool_input": {"command": "git push origin main -f"}}

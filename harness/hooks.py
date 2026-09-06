@@ -23,11 +23,16 @@ TASK_FILE = re.compile(r"(^|/)work/.*TASK-\d{4}[^/]*\.md$")
 PRIORITY_LINE = re.compile(r"^\s*priority(-[a-z]+)?\s*:.*$", re.M)
 MOVE_ON_WORK = re.compile(r"(^|[\s;&|(])(mv|cp|rm|rmdir)\s[^;&|]*\bwork/(sprints|backlog)\b")
 GIT_MV_ON_WORK = re.compile(r"\bgit\s+(mv|rm)\s[^;&|]*\bwork/")
-SHELL_SEPARATOR = frozenset((";", "&&", "||", "|", "&", "(", ")"))
+SHELL_SEPARATOR = frozenset((";", "&&", "||", "|", "&", "(", ")", "\n"))
 SHELL_KEYWORD = frozenset(("then", "do", "{"))
 COMMAND_WRAPPER = frozenset(("nohup", "sudo", "time", "nice"))
 SHELL_COMMAND = frozenset(("bash", "dash", "ksh", "sh", "zsh"))
 GIT_OPTION_WITH_VALUE = frozenset(("-C", "-c", "--git-dir", "--work-tree"))
+# `<<TAG`, `<<'TAG'`, `<<"TAG"`, and the `<<-` form that strips leading tabs. A quoted
+# tag holds any character, so `<<'END-OF-FILE'` matches. An unquoted tag starts with a
+# letter or an underscore: a tag that starts with a digit would also match the `<<` of
+# an arithmetic shift, and `echo $((1<<2))` would read as a heredoc that opens tag `2`.
+HEREDOC_TAG = re.compile(r"<<-?\s*(?:'([^'\n]+)'|\"([^\"\n]+)\"|([A-Za-z_][A-Za-z0-9_.-]*))")
 
 
 def read_payload(stream=None):
@@ -124,24 +129,96 @@ def _protected_git_operation(command, depth=0):
     """
     if depth > 3:
         return ("nested shell command", "the hook cannot inspect more than three shell levels")
-    for line in command.splitlines() or [command]:
+    words = _lex(_strip_heredocs(command))
+    if words is None:
+        return ("unparsed shell command", "the hook cannot inspect its quoting safely")
+    segment = []
+    for word in words + [";"]:
+        if word not in SHELL_SEPARATOR:
+            segment.append(word)
+            continue
+        operation = _protected_git_segment(segment, depth)
+        if operation:
+            return operation
+        segment = []
+    return None
+
+
+def _strip_heredocs(command):
+    """Return the command with every heredoc body removed.
+
+    A heredoc body is data for another program. The shell never runs it as a command,
+    so the hook has nothing to read there. The body also holds quotes that no shell
+    reads as quotes, and a lexer that reads them fails on an ordinary commit message.
+
+    Measured on 2026-09-06: `git commit -F - <<'EOF'` with the word `doesn't` in the
+    message denied the commit. The heredoc marker stays on its line, so a protected
+    command that carries a heredoc is still read and still denied.
+    """
+    lines = command.split("\n")
+    kept = []
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        kept.append(line)
+        index += 1
+        for tag in _heredoc_tags(line):
+            end = index
+            while end < len(lines) and lines[end].strip() != tag:
+                end += 1
+            if end < len(lines):
+                index = end + 1  # the body and its terminator carry no command
+            # No terminator line: keep every line. A tag that this regex reads wrongly
+            # would otherwise remove the rest of the command, and a `git push --force`
+            # below an unterminated heredoc would never be read.
+    return "\n".join(kept)
+
+
+def _heredoc_tags(line):
+    """Return the heredoc tag of each `<<` on one line."""
+    return [next(g for g in m.groups() if g is not None) for m in HEREDOC_TAG.finditer(line)]
+
+
+def _drop_comments(command):
+    """Return the command with a trailing `#` comment removed from EVERY line.
+
+    The comment of one line must never remove another line. An earlier form searched
+    the whole command and cut from the first `#` to the end of the text. Measured on
+    2026-09-06: `echo # '` on line 1 removed `git push --force` on line 2, and the
+    guard allowed the push. A comment ends at its own newline, and so does this.
+    """
+    kept = []
+    for line in command.split("\n"):
+        found = re.search(r"(?:^|[\s;&|()])#", line)
+        kept.append(line[:found.start()] if found else line)
+    return "\n".join(kept)
+
+
+def _lex(command):
+    """Return the words of the whole command, or None when the hook cannot read it.
+
+    The lexer reads the command once, and never one line at a time. A line is not a
+    unit of shell syntax: a quoted string, a `python3 -c` program, and a heredoc all
+    cross a newline. A lexer that reads one line at a time cuts them, sees an odd
+    number of quotes, and denies an ordinary command.
+
+    A newline leaves the whitespace set and joins the punctuation set, so it becomes
+    one token. Two commands on two lines stay two segments, and a quoted string that
+    holds a newline stays one word.
+
+    A command that fails once can carry a trailing comment. The shell drops a comment
+    before it runs the command, so the hook drops it too, one line at a time. A
+    command that still fails is a command that the hook must not guess at.
+    """
+    for text in (command, _drop_comments(command)):
         try:
-            lexer = shlex.shlex(line, posix=True, punctuation_chars=";&|()")
+            lexer = shlex.shlex(text, posix=True, punctuation_chars=";&|()\n")
             lexer.whitespace_split = True
             lexer.commenters = ""
-            words = list(lexer)
+            lexer.whitespace = " \t\r"
+            return list(lexer)
         except ValueError:
-            return ("unparsed shell command", "the hook cannot inspect its quoting safely")
-
-        segment = []
-        for word in words + [";"]:
-            if word not in SHELL_SEPARATOR:
-                segment.append(word)
-                continue
-            operation = _protected_git_segment(segment, depth)
-            if operation:
-                return operation
-            segment = []
+            continue
     return None
 
 
