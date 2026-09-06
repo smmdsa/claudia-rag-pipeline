@@ -124,7 +124,7 @@
     "infra/rag/agent/agent.py": {
       "kind": "owned",
       "template": "infra/rag/agent/agent.py",
-      "sha256": "d5b27ffa22859563b797f577e3484614235baac2fa233fbcb47f26c087df0a91"
+      "sha256": "f2d80921743824e267c8b5fc5bae825f9bef1333080723919a28d1fc75c33eee"
     },
     "infra/rag/bun.lock": {
       "kind": "owned",
@@ -143,7 +143,7 @@
     "infra/rag/docker-compose.yml": {
       "kind": "owned",
       "template": "infra/rag/docker-compose.yml",
-      "sha256": "70b18ecaee6f358345cd83201f74d67cacd3393381889e75ba358a7dac22453c"
+      "sha256": "764ad157988c67d992dba45271bb8b1821eec2c46224ee2b0560081327afb759"
     },
     "infra/rag/package.json": {
       "kind": "owned",

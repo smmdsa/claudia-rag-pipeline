@@ -16,6 +16,26 @@ always meant: you talk to your agent, and the agent runs the harness.
 
 ### Added
 
+- **The rag agent removes its own orphaned chunks.** `qmd update` writes the new chunk
+  of a changed document and leaves the old vector in the database. Measured on
+  2026-09-05: the index held 434 orphaned chunks, 62% of the vectors, and the number
+  grew 8 points inside one session. A cleanup took it to 0 and lost no document, and
+  one re-index of 2 changed documents put 2 orphans back. A re-index with no content
+  change added none, so the cause is each edit and not the clock.
+
+  `infra/rag/agent/agent.py` now runs `qmd cleanup` as a third step, after `qmd embed`
+  and only when the orphan rate passes `QMD_CLEANUP_OVER`. The default is 0.10, the
+  same number that `rag health` already calls a warning, so a quiet day costs no
+  vacuum. Set `HARNESS_RAG_CLEANUP_OVER` to tune it, or to 1 to never clean. `/state`
+  reports `orphanRateBefore` and `orphanRateAfter` on every run.
+
+  A rate that the index cannot answer returns `None`, never 0.0. A default value must
+  never look like a measurement (law 7). A failed `qmd embed` stops the run before the
+  cleanup, because a cleanup then removes the vectors that the embed did not write.
+
+  Measured live on 2026-09-05: the agent ran the three steps by itself, took the rate
+  from 0.0822 to 0.0, and removed 24 orphaned chunks in 310 ms. M45 to M48.
+
 - **`python3 -m harness rag link`** and `harness/mcp.py` — the link between this agent
   and the index. Claude Code opens every MCP connection once, when its process starts,
   and it never retries. A container that starts later answers on its port and stays

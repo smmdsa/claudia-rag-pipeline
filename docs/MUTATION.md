@@ -56,6 +56,10 @@ not whether one does. Baseline: 106 tests, 0 red. After the last restore: 106 te
 | M42 | `harness/mcp.py` | the elapsed time of the client is read as an absolute time | 1 — `AncestorTest.test_finds_the_client_above_the_shell` |
 | M43 | `harness/dashboard.py` | the cache is never stale, so the page answers from an old reading | 2 — `DashboardTest.test_a_move_makes_the_cache_stale`, `DashboardTest.test_the_page_reads_a_move_with_no_wait` |
 | M44 | `harness/ports.py` | port_for ignores the env file that docker compose reads | 2 — `PortsTest.test_port_for_reads_the_env_file_that_docker_compose_reads`, `PortsTest.test_stack_ports_check_the_port_that_docker_publishes` |
+| M45 | `infra/rag/agent/agent.py` | the agent never runs the cleanup, so the orphan rate grows all day | 1 — `AgentCleanupTest.test_cleanup_runs_when_the_rate_passes_the_threshold` |
+| M46 | `infra/rag/agent/agent.py` | the agent vacuums the database on every update, threshold or not | 2 — `AgentCleanupTest.test_a_quiet_day_costs_no_cleanup`, `AgentCleanupTest.test_a_rate_that_nobody_measured_is_not_a_rate_of_zero` |
+| M47 | `infra/rag/agent/agent.py` | an index that cannot answer reads as a clean index, and 0.0 looks measured | 2 — `AgentCleanupTest.test_a_rate_that_nobody_measured_is_not_a_rate_of_zero`, `AgentCleanupTest.test_an_empty_index_never_divides_by_zero` |
+| M48 | `infra/rag/agent/agent.py` | a failed embed still reaches the cleanup, which removes the vectors it did not write | 1 — `AgentCleanupTest.test_a_failed_embed_stops_before_the_cleanup` |
 
 M38 and M39 ran on 2026-09-05, after `./infra/rag/up.sh` refused to run on a stack that
 was already up. Baseline 151 tests, 0 red. After the restore: 151 tests, 0 red.

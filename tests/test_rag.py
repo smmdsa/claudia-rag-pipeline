@@ -183,6 +183,80 @@ class AgentParserTest(unittest.TestCase):
             rm(root)
 
 
+class AgentCleanupTest(unittest.TestCase):
+    """`qmd update` leaves the old vector of a changed document behind.
+
+    Measured on 2026-09-05: a cleanup took the index from 434 orphaned chunks (62%)
+    to 0, and one re-index of 2 changed documents put 2 back. So the agent runs the
+    cleanup itself, and only when the rate passes the threshold.
+    """
+
+    def agent_with(self, totals, codes=None):
+        """Load the agent, and replace `sh` and `read_index` with fakes.
+
+        `totals` is a list. Each call of `read_index` takes the next entry, so a test
+        can measure the rate before the cleanup and after it.
+        """
+        agent = load_agent()
+        calls = []
+        left = list(totals)
+
+        def fake_sh(args):
+            calls.append(" ".join(args))
+            code = (codes or {}).get(args[1], 0)
+            return {"cmd": " ".join(args), "code": code, "ms": 1, "tail": [], "text": ""}
+
+        agent.sh = fake_sh
+        agent.read_index = lambda: ({}, left.pop(0) if len(left) > 1 else left[0])
+        return agent, calls
+
+    def test_cleanup_runs_when_the_rate_passes_the_threshold(self):
+        agent, calls = self.agent_with([{"chunks": 696, "orphanedChunks": 434},
+                                        {"chunks": 262, "orphanedChunks": 0}])
+        run = agent.run_update("test")
+        self.assertEqual(calls, ["qmd update", "qmd embed", "qmd cleanup"])
+        self.assertEqual([s["cmd"] for s in run["steps"]],
+                         ["qmd update", "qmd embed", "qmd cleanup"])
+        self.assertAlmostEqual(run["orphanRateBefore"], 434 / 696.0)
+        self.assertEqual(run["orphanRateAfter"], 0.0)
+
+    def test_a_quiet_day_costs_no_cleanup(self):
+        # 2 of 264 is 0.7%, under the 10% threshold. This is the state right after a
+        # cleanup, and the agent must not vacuum the database every 900 seconds.
+        agent, calls = self.agent_with([{"chunks": 264, "orphanedChunks": 2}])
+        run = agent.run_update("test")
+        self.assertEqual(calls, ["qmd update", "qmd embed"])
+        self.assertIsNone(run["orphanRateAfter"])
+
+    def test_a_rate_that_nobody_measured_is_not_a_rate_of_zero(self):
+        # law 7: a default value must never look like a measurement. An index that
+        # cannot answer must not read as a clean index, and must not read as a dirty
+        # one either. The agent measures nothing and cleans nothing.
+        agent, calls = self.agent_with([{"chunks": 0, "orphanedChunks": None}])
+        run = agent.run_update("test")
+        self.assertEqual(calls, ["qmd update", "qmd embed"])
+        self.assertIsNone(run["orphanRateBefore"])
+
+    def test_an_empty_index_never_divides_by_zero(self):
+        agent, _ = self.agent_with([{"chunks": 0, "orphanedChunks": 0}])
+        self.assertIsNone(agent.orphan_rate())
+
+    def test_a_failed_embed_stops_before_the_cleanup(self):
+        # A cleanup after a failed embed removes the vectors that the embed did not
+        # write yet. The rate is high for that reason, and the cleanup is wrong.
+        agent, calls = self.agent_with([{"chunks": 696, "orphanedChunks": 434}],
+                                       codes={"embed": 1})
+        run = agent.run_update("test")
+        self.assertEqual(calls, ["qmd update", "qmd embed"])
+        self.assertFalse(run["ok"])
+
+    def test_a_failed_update_stops_before_both(self):
+        agent, calls = self.agent_with([{"chunks": 696, "orphanedChunks": 434}],
+                                       codes={"update": 1})
+        agent.run_update("test")
+        self.assertEqual(calls, ["qmd update"])
+
+
 class RagConfigTest(unittest.TestCase):
     def test_write_config_from_profile(self):
         root = make_repo()

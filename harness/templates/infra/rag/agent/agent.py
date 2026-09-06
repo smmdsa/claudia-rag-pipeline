@@ -6,7 +6,14 @@ index.yml and index.sqlite as qmd.
   GET  /state    JSON for the canary and the board page
   GET  /health   {"status": "ok"}
   GET  /         a small HTML view of /state
-  POST /update   run `qmd update` and `qmd embed` now
+  POST /update   run `qmd update`, `qmd embed`, and `qmd cleanup` now
+
+`qmd update` writes the new chunk of a changed document and leaves the old
+vector in the database. Measured on 2026-09-05: a cleanup took the index from
+434 orphaned chunks (62%) to 0, and one re-index of 2 changed documents put 2
+orphans back. A run with no content change added none. So the rate grows with
+the edits of the day, and only a cleanup removes them. This agent runs the
+cleanup when the rate passes QMD_CLEANUP_OVER, and never on a quiet day.
 
 Freshness is NOT the age of the newest file. `MAX(documents.modified_at)` is the
 mtime of the newest SOURCE file. A collection that nobody edits looks stale while
@@ -38,6 +45,7 @@ MODELS = os.path.join(CACHE, "models")
 INTERVAL_S = int(os.environ.get("QMD_UPDATE_INTERVAL", "900"))
 PORT = int(os.environ.get("STATE_PORT", "8411"))
 STALE_AFTER_S = int(os.environ.get("QMD_STALE_AFTER", str(INTERVAL_S * 3)))
+CLEANUP_OVER = float(os.environ.get("QMD_CLEANUP_OVER", "0.10"))
 STARTED = time.time()
 
 _lock = threading.Lock()
@@ -129,6 +137,7 @@ def run_update(trigger):
         running = True
     started = now_iso()
     steps = []
+    before = after = None
     try:
         up = sh(["qmd", "update"])
         # Parse before the exit code decides anything. A partial run still records
@@ -139,11 +148,19 @@ def run_update(trigger):
             em = sh(["qmd", "embed"])
             em.pop("text")
             steps.append(em)
+            if em["code"] == 0:
+                before = orphan_rate()
+                if before is not None and before > CLEANUP_OVER:
+                    cl = sh(["qmd", "cleanup"])
+                    cl.pop("text")
+                    steps.append(cl)
+                    after = orphan_rate()
     finally:
         with _lock:
             running = False
     last_run = {"trigger": trigger, "startedAt": started, "finishedAt": now_iso(),
-                "ok": all(s["code"] == 0 for s in steps), "steps": steps}
+                "ok": all(s["code"] == 0 for s in steps), "steps": steps,
+                "orphanRateBefore": before, "orphanRateAfter": after}
     runs.insert(0, last_run)
     del runs[20:]
     print("[agent] %s: ok=%s %s" % (trigger, last_run["ok"], " | ".join("%s %s %sms" % (s["cmd"], s["code"], s["ms"]) for s in steps)), flush=True)
@@ -203,6 +220,19 @@ def read_index():
     finally:
         con.close()
     return indexed, totals
+
+
+def orphan_rate():
+    """Return orphaned chunks over total chunks, or None when the index cannot answer.
+
+    A rate that nobody measured must never read as a rate of zero. That is law 7,
+    and the caller must test for None before it compares.
+    """
+    _, totals = read_index()
+    chunks, orphans = totals.get("chunks") or 0, totals.get("orphanedChunks")
+    if orphans is None or chunks <= 0:
+        return None
+    return orphans / float(chunks)
 
 
 def _age(iso):
