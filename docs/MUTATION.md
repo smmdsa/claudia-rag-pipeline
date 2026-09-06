@@ -79,9 +79,15 @@ not whether one does. Baseline: 106 tests, 0 red. After the last restore: 106 te
 | M65 | `harness/hooks.py` | a heredoc body is read as commands, so data denies a command | 1 — `HookTest.test_pre_bash_allows_a_command_that_a_line_reader_cannot_lex` |
 | M66 | `harness/hooks.py` | a newline is whitespace, so two commands on two lines read as one | 1 — `HookTest.test_pre_bash_denies_history_changes_with_reordered_git_flags` |
 | M67 | `harness/hooks.py` | a command that the hook cannot read is allowed | 1 — `HookTest.test_pre_bash_still_denies_a_protected_command_that_carries_a_heredoc` |
+| M68 | `scripts/contributors.py` | the fresh commit page is never read, so a new name is lost to the cache | 2 — `ContributorBlockTest.test_a_name_the_cached_aggregate_missed_still_lands`, `ContributorBlockTest.test_the_aggregate_ranks_first_and_the_fresh_name_follows` |
+| M69 | `scripts/contributors.py` | the cached aggregate is never read, so every old name and the rank go | 6 — `ContributorBlockTest.test_a_new_name_lands_in_the_block` and 5 more |
+| M70 | `scripts/contributors.py` | a bot in the commit page is thanked as a person | 1 — `ContributorBlockTest.test_a_bot_never_appears` |
 | M71 | `harness/hooks.py` | the comment stripper cuts to the end of the whole command, so a comment on line 1 hides a command on line 2 | 1 — `HookTest.test_pre_bash_reads_a_command_under_a_comment_on_an_earlier_line` |
 | M72 | `harness/hooks.py` | a heredoc with no terminator removes every line below it | 1 — `HookTest.test_pre_bash_reads_a_command_below_a_heredoc_it_cannot_close` |
 | M73 | `harness/hooks.py` | the tag regex reads no quoted tag and no dash, so a body reaches the lexer | 2 — `HookTest.test_pre_bash_allows_a_command_that_a_line_reader_cannot_lex`, `HookTest.test_pre_bash_strips_every_heredoc_tag_shape` |
+| M74 | `scripts/contributors.py` | an answer that is not a list is iterated as rows, and the script dies | 2 — `ContributorBlockTest.test_an_answer_that_is_not_a_list_leaves_every_name_in_place`, `ContributorBlockTest.test_an_answer_that_is_not_a_list_names_the_message` |
+| M75 | `scripts/contributors.py` | the `alt` repeats the login, so a screen reader says the name twice | 2 — `ContributorBlockTest.test_a_picture_is_decorative_because_the_link_holds_the_name`, `ContributorBlockTest.test_check_is_quiet_when_the_list_is_current` |
+| M76 | `scripts/contributors.py` | the size joins a url that already carries a query with a second `?` | 2 — `ContributorBlockTest.test_the_size_joins_a_url_that_already_carries_a_query`, `ContributorBlockTest.test_check_is_quiet_when_the_list_is_current` |
 
 M38 and M39 ran on 2026-09-05, after `./infra/rag/up.sh` refused to run on a stack that
 was already up. Baseline 151 tests, 0 red. After the restore: 151 tests, 0 red.

@@ -16,13 +16,32 @@ always meant: you talk to your agent, and the agent runs the harness.
 
 ### Added
 
-- **`README.md` thanks the contributors, and a workflow keeps the list current.**
-  `scripts/contributors.py` reads the GitHub API and writes the names between two
-  markers in `README.md`. `.github/workflows/contributors.yml` runs it on every push
-  to `main`, and it commits only when the block changes.
+- **`README.md` thanks the contributors, with a picture for each one.**
+  `scripts/contributors.py` reads the GitHub API and writes the names and the pictures
+  between two markers in `README.md`. A person runs it once a week and reads the diff.
 
-  The list holds names and no commit counts. A count changes on every push, and that
-  costs one commit per push. A name changes when a new person lands a first patch.
+  No workflow runs it. A job that writes to the default branch needs a token with write
+  rights, and it commits with no human in the path. The list changes a few times a
+  year, so the command costs less than the surface that the automation opens.
+
+  The script reads two endpoints. `/contributors` aggregates the whole history, and
+  GitHub caches it: measured on 2026-09-06, it named 1 person while the repository page
+  named 3, and a contributor who landed 40 minutes earlier was missing. `/commits`
+  resolves the author of each recent commit and is fresh, and it carries the last page
+  only. The union answers both questions.
+
+  The list holds names and pictures, and no commit counts. A count changes on every
+  push. A name changes when a new person lands a first patch.
+
+  GitHub answers a list of people on success, and an OBJECT to carry a message such as
+  a rate limit. A caller that iterates an object reads its keys as rows, and a key is a
+  string with no `get`. Measured on 2026-09-06: the script died with an `AttributeError`
+  out of `main`. `get_json` now raises a `ValueError` on an answer that is not a list,
+  so the script reports what happened and leaves README.md alone.
+
+  The `alt` of each picture stays empty. The link already holds the login as text, so a
+  screen reader reads the name from the link. WAI names this case "an image and text in
+  the same link", and it asks for a null `alt` there. M74 to M76.
 
   An API that gives no answer leaves the file alone, and so does an API that answers
   with an empty list. A wrong list removes a name that a person earned (law 7). The
