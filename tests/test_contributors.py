@@ -172,6 +172,55 @@ class ContributorBlockTest(unittest.TestCase):
         self.assertEqual(self.mod.main([]), 0)
         self.assertIn("<b>first</b>", self.text())
 
+    def test_an_answer_that_is_not_a_list_leaves_every_name_in_place(self):
+        """THE regression that Copilot found on PR 9.
+
+        GitHub answers a list of people on success, and an OBJECT to carry a message
+        such as a rate limit. A caller that iterates an object reads its keys as rows,
+        and a key is a string with no `get`. Measured on 2026-09-06: the script died
+        with `AttributeError: 'str' object has no attribute 'get'` out of `main`.
+        """
+        self.use({"message": "API rate limit exceeded", "documentation_url": "..."})
+        self.assertEqual(self.mod.main([]), 0)
+        self.assertIn("<b>first</b>", self.text())
+
+    def test_an_answer_that_is_not_a_list_names_the_message(self):
+        self.use({"message": "API rate limit exceeded"})
+        out = io.StringIO()
+        real = sys.stdout
+        sys.stdout = out
+        try:
+            self.mod.main([])
+        finally:
+            sys.stdout = real
+        printed = out.getvalue()
+        self.assertIn("no list of people", printed)
+        self.assertIn("API rate limit exceeded", printed)
+        self.assertIn("README.md is unchanged", printed)
+
+    def test_a_picture_is_decorative_because_the_link_holds_the_name(self):
+        # WAI: an image and text in the same link takes a null alt. An alt that
+        # repeats the login makes a screen reader say the name twice.
+        self.use(rows(("first", 30, "User")), commits(("second", "User")))
+        self.mod.main([])
+        text = self.text()
+        self.assertIn('alt=""', text)
+        self.assertNotIn('alt="first"', text)
+        self.assertEqual(text.count("<b>first</b>"), 1)  # the name appears once
+
+    def test_the_size_joins_a_url_that_already_carries_a_query(self):
+        self.use(rows(("first", 30, "User")), commits(("second", "User")))
+        self.mod.main([])
+        self.assertIn("?v=4&s=96", self.text())
+
+    def test_a_row_with_no_picture_falls_back_to_the_login_url(self):
+        self.use([{"login": "first", "contributions": 30, "type": "User", "avatar_url": ""},
+                  {"login": "second", "contributions": 1, "type": "User"}])
+        self.mod.main([])
+        text = self.text()
+        self.assertIn("https://github.com/first.png?size=96", text)
+        self.assertIn("https://github.com/second.png?size=96", text)
+
     def test_no_answer_leaves_every_name_in_place(self):
         # An empty list is not an answer. A wrong list removes a name that a person earned.
         self.use_no_network()

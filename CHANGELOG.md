@@ -33,6 +33,16 @@ always meant: you talk to your agent, and the agent runs the harness.
   The list holds names and pictures, and no commit counts. A count changes on every
   push. A name changes when a new person lands a first patch.
 
+  GitHub answers a list of people on success, and an OBJECT to carry a message such as
+  a rate limit. A caller that iterates an object reads its keys as rows, and a key is a
+  string with no `get`. Measured on 2026-09-06: the script died with an `AttributeError`
+  out of `main`. `get_json` now raises a `ValueError` on an answer that is not a list,
+  so the script reports what happened and leaves README.md alone.
+
+  The `alt` of each picture stays empty. The link already holds the login as text, so a
+  screen reader reads the name from the link. WAI names this case "an image and text in
+  the same link", and it asks for a null `alt` there. M74 to M76.
+
   An API that gives no answer leaves the file alone, and so does an API that answers
   with an empty list. A wrong list removes a name that a person earned (law 7). The
   script skips every bot account, and an answer of only bots leaves the file alone too. `--check` reports a stale list and writes nothing, so a workflow can

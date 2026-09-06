@@ -65,13 +65,27 @@ def repo_slug():
 
 
 def get_json(url, token=None):
-    """Return the parsed answer of one GET. The caller handles every error."""
+    """Return the rows of one GET. Raise when the answer is not a list of rows.
+
+    GitHub answers a list of people on success. It answers an OBJECT to carry a
+    message, such as a rate limit. A caller that iterates an object reads its keys as
+    rows, and a key is a string with no `get`. Measured on 2026-09-06: a rate-limit
+    body raised `AttributeError` out of `main`, and the script died with a traceback.
+
+    A `ValueError` here lands in the caller that already reports no answer, so the
+    script says what happened and leaves README.md alone.
+    """
     req = urllib.request.Request(url, headers={
         "Accept": "application/vnd.github+json", "User-Agent": "harness-contributors"})
     if token:
         req.add_header("Authorization", "Bearer %s" % token)
     with urllib.request.urlopen(req, timeout=TIMEOUT_S) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+        data = json.loads(resp.read().decode("utf-8"))
+    if not isinstance(data, list):
+        message = data.get("message") if isinstance(data, dict) else ""
+        raise ValueError("%s answered no list of people (%s)"
+                         % (url, message or type(data).__name__))
+    return data
 
 
 def is_person(login, kind):
@@ -107,12 +121,29 @@ def people(slug, token=None):
                   key=lambda p: (order[p[0]], p[0].lower()))
 
 
+def avatar_src(login, avatar):
+    """Return the picture url at the size this list uses.
+
+    The API url already carries a query, so the size joins it with `&`. The
+    `github.com/<login>.png` form is the fallback when a row carries no picture.
+    """
+    if not avatar:
+        return "https://github.com/%s.png?size=%d" % (login, AVATAR_PX)
+    joiner = "&" if "?" in avatar else "?"
+    return "%s%ss=%d" % (avatar, joiner, AVATAR_PX)
+
+
 def cell(login, avatar):
-    src = "%s%ss=%d" % (avatar, "&" if "?" in avatar else "?", AVATAR_PX) if avatar \
-        else "https://github.com/%s.png?size=%d" % (login, AVATAR_PX)
+    """Return one table cell: a picture above a name, both inside one link.
+
+    The `alt` stays empty on purpose. The link already holds the login as text, so a
+    screen reader reads the name from the link. An `alt` that repeats the login makes
+    the reader say the name twice. WAI names this case "an image and text in the same
+    link", and it asks for a null `alt` there.
+    """
     return ('<td align="center"><a href="https://github.com/%s">'
             '<img src="%s" width="%d" alt=""><br><sub><b>%s</b></sub></a></td>'
-            % (login, src, AVATAR_PX, login))
+            % (login, avatar_src(login, avatar), AVATAR_PX, login))
 
 
 def block(persons):
