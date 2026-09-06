@@ -13,6 +13,18 @@ next to the code.
   only third-party code, pinned by lockfile and digest. We run the harness on Python
   3.10 and on Python 3.14.
 
+## Thanks to the contributors
+
+These people wrote the code of this repository. Every merged patch adds a name.
+
+<!-- contributors:start -->
+[@smmdsa](https://github.com/smmdsa)
+<!-- contributors:end -->
+
+`scripts/contributors.py` writes that list from the GitHub API, and
+`.github/workflows/contributors.yml` runs it on every push to `main`. The list holds
+names and no counts, so it changes when a new person lands a first patch.
+
 `ARCHITECTURE.md` names every component, port, and contract. `docs/DESIGN-LAWS.md`
 records the twelve laws and the measured failures behind them. `docs/PROPOSALS.md`
 lists what this product changes against its two sources. `CHANGELOG.md` records every

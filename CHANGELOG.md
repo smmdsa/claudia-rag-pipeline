@@ -16,6 +16,20 @@ always meant: you talk to your agent, and the agent runs the harness.
 
 ### Added
 
+- **`README.md` thanks the contributors, and a workflow keeps the list current.**
+  `scripts/contributors.py` reads the GitHub API and writes the names between two
+  markers in `README.md`. `.github/workflows/contributors.yml` runs it on every push
+  to `main`, and it commits only when the block changes.
+
+  The list holds names and no commit counts. A count changes on every push, and that
+  costs one commit per push. A name changes when a new person lands a first patch.
+
+  An API that gives no answer leaves the file alone, and so does an API that answers
+  with an empty list. A wrong list removes a name that a person earned (law 7). The
+  script skips every bot account, and an answer of only bots leaves the file alone too. `--check` reports a stale list and writes nothing, so a workflow can
+  read the state without a side effect. Standard library only, and the one action is
+  pinned by commit. M58 to M61.
+
 - **The rag agent removes its own orphaned chunks.** `qmd update` writes the new chunk
   of a changed document and leaves the old vector in the database. Measured on
   2026-09-05: the index held 434 orphaned chunks, 62% of the vectors, and the number
