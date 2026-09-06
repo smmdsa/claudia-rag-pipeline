@@ -79,6 +79,9 @@ not whether one does. Baseline: 106 tests, 0 red. After the last restore: 106 te
 | M65 | `harness/hooks.py` | a heredoc body is read as commands, so data denies a command | 1 — `HookTest.test_pre_bash_allows_a_command_that_a_line_reader_cannot_lex` |
 | M66 | `harness/hooks.py` | a newline is whitespace, so two commands on two lines read as one | 1 — `HookTest.test_pre_bash_denies_history_changes_with_reordered_git_flags` |
 | M67 | `harness/hooks.py` | a command that the hook cannot read is allowed | 1 — `HookTest.test_pre_bash_still_denies_a_protected_command_that_carries_a_heredoc` |
+| M71 | `harness/hooks.py` | the comment stripper cuts to the end of the whole command, so a comment on line 1 hides a command on line 2 | 1 — `HookTest.test_pre_bash_reads_a_command_under_a_comment_on_an_earlier_line` |
+| M72 | `harness/hooks.py` | a heredoc with no terminator removes every line below it | 1 — `HookTest.test_pre_bash_reads_a_command_below_a_heredoc_it_cannot_close` |
+| M73 | `harness/hooks.py` | the tag regex reads no quoted tag and no dash, so a body reaches the lexer | 2 — `HookTest.test_pre_bash_allows_a_command_that_a_line_reader_cannot_lex`, `HookTest.test_pre_bash_strips_every_heredoc_tag_shape` |
 
 M38 and M39 ran on 2026-09-05, after `./infra/rag/up.sh` refused to run on a stack that
 was already up. Baseline 151 tests, 0 red. After the restore: 151 tests, 0 red.
