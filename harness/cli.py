@@ -352,7 +352,13 @@ def run(args):
             emit(r, js, mcp.link_text)
             return 1 if r["state"] == "stale" else 0
         r = rag.request_update(root, url=args.state_url)
-        emit(r, js, lambda r: "re-index %s" % ("requested: %s" % r["note"] if r["ok"] else "FAILED: %s" % r["note"]))
+
+        def update_text(r):
+            if r["ok"] is None:
+                return "re-index %s" % r["note"]
+            return "re-index %s" % ("requested: %s" % r["note"] if r["ok"] else "FAILED: %s" % r["note"])
+        emit(r, js, update_text)
+        # None exits 1. The user asked for a run and got no proof of one (law 5).
         return 0 if r["ok"] else 1
     if c == "dashboard":
         if args.action == "build-db":

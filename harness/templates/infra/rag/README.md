@@ -19,7 +19,7 @@ Before `up`, the script checks the two ports and stops if one is taken.
 | `./infra/rag/up.sh down` | stop |
 | `./infra/rag/up.sh logs -f rag-agent` | watch the indexing |
 | `python3 -m harness rag health` | the canary: what the session sees now |
-| `python3 -m harness rag update` | re-index now |
+| `python3 -m harness rag update` | start a re-index now, and answer at once |
 | `python3 -m harness rag config` | regenerate `config/index.yml` from the profile |
 
 ## The two services

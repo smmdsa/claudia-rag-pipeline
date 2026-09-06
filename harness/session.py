@@ -339,10 +339,14 @@ def close_text(r):
              "- journal: one session line appended (%d verdict(s) closed, %d observation(s))" % (r["qa_closed"], r["observations"]),
              "- eye queue: %d task(s) still await a verdict" % r["awaiting_verdict"]]
     rg = r["rag"]
-    if rg.get("ok") is None:
+    if rg.get("reason") == "timeout":
+        # Nobody proved that the run started. The line says so, and never "started".
+        lines.append("- RAG: re-index %s" % rg.get("note"))
+    elif rg.get("ok") is None:
         lines.append("- RAG: not re-indexed (%s)" % rg.get("note"))
     elif rg.get("ok"):
-        lines.append("- RAG: re-index requested")
+        # The note carries the outcome: "started" or "skipped: <reason>".
+        lines.append("- RAG: re-index %s" % (rg.get("note") or "requested"))
     else:
         lines.append("- RAG: re-index FAILED (%s)" % rg.get("note"))
     lines.append("- memory: update the durable memory by hand when the session produced a lesson")

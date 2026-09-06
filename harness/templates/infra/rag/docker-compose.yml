@@ -54,6 +54,9 @@ services:
     environment:
       QMD_CONFIG_DIR: /config
       QMD_UPDATE_INTERVAL: ${HARNESS_RAG_UPDATE_INTERVAL:-900}
+      # The orphan rate that makes the agent run `qmd cleanup`. 0.10 is the same
+      # number that `rag health` calls a warning. Set 1 to never clean.
+      QMD_CLEANUP_OVER: ${HARNESS_RAG_CLEANUP_OVER:-0.10}
       STATE_PORT: "8411"
     volumes:
       - rag-index:/data/cache/qmd

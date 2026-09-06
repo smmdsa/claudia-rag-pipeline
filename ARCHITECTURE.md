@@ -275,6 +275,27 @@ The stack mounts the repository and the memory directory read only. The host pat
 from `.harness/env.local`. `infra/rag/up.sh` derives that file when it is missing and
 checks the ports before `docker compose up`.
 
+`POST /update` starts the run in a thread and answers before the steps finish. Measured
+on 2026-09-05: `qmd embed` took 161136 ms after a container restart, and the answer took
+0.004193 s. One run holds a reservation, so a second POST reads
+`{"skipped": true, "reason": "a run is in progress"}`. The result lands in `agent.lastRun`
+of `/state`, and the agent records the run before it releases the reservation.
+
+`harness/rag.py` `http_json` returns `(data, reason)`. A timeout, a refused connection,
+and an answer that is not a re-index are three errors, and `request_update` reports three
+outcomes.
+
+A timeout proves nothing. The endpoint answers in 0.004193 s, so a timeout means an
+abnormal stack and never a slow embed. The kernel completes the handshake for a paused
+container, so even a read timeout proves no receipt. `request_update` reports `ok: None`
+and the note "not confirmed", and it names `python3 -m harness rag health`. The CLI exits
+1, because the user asked for a run and got no proof of one (law 5).
+
+A refused connection proves that no service holds the port. That reports `ok: False` and
+names `python3 -m harness stack start`. An HTTP error, or a body that is not JSON, proves
+that a service answered. That reports `ok: False` and names `python3 -m harness ports`,
+because the cause is a wrong port or an agent that is out of date.
+
 `harness rag health` reads `/state` and reports `RAG: OK`, `RAG: warnings`, or
 `RAG: BROKEN` with exit 0, 1, or 2. It measures the last time `qmd update` covered each
 collection, from the `Indexed:` lines that qmd prints. It never reads a file date. A

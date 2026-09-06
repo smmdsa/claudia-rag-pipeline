@@ -9,6 +9,7 @@ Exit codes: 0 ok, 1 warnings, 2 broken.
 """
 import json
 import os
+import socket
 import urllib.error
 import urllib.request
 
@@ -18,6 +19,11 @@ from harness.util import human_delta, write_text
 
 CONFIG = os.path.join("infra", "rag", "config", "index.yml")
 ORPHAN_WARN_PCT = 20
+# The POST that asks for a re-index. The endpoint answers before it runs, so this
+# waits for one HTTP round trip and never for `qmd embed`.
+UPDATE_TIMEOUT_S = 8
+# The canary must stay fast. It reads `/state` and never waits for a run.
+HEALTH_TIMEOUT_S = 6
 
 
 def state_url(root=None):
@@ -28,24 +34,68 @@ def mcp_url(root=None):
     return os.environ.get("HARNESS_RAG_MCP_URL") or "http://127.0.0.1:%d" % port_for("HARNESS_RAG_PORT", root)
 
 
+def call_reason(exc):
+    """Name one failed HTTP call. A timeout and a refused connection are not the same.
+
+    A refused connection proves that no service holds the port. A timeout proves
+    nothing. The request went out, and no answer came back. The kernel completes the
+    handshake for a paused service, so even a read timeout proves no receipt.
+    Law 3: no answer proves no cause.
+    """
+    if isinstance(exc, urllib.error.HTTPError):
+        return "http %d" % exc.code
+    inner = getattr(exc, "reason", None) or exc
+    if isinstance(inner, (TimeoutError, socket.timeout)):
+        return "timeout"
+    if isinstance(inner, ConnectionRefusedError):
+        return "refused"
+    return "unreachable: %s" % inner
+
+
 def http_json(url, method="GET", timeout=4):
+    """Return (data, reason). On success reason is None. On an error data is None.
+
+    Every caller must read the reason before it names a cause. The old form returned
+    `None` alone, so a slow index and a stopped stack printed the same sentence.
+    """
     req = urllib.request.Request(url, method=method)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             body = resp.read().decode("utf-8")
-    except (urllib.error.URLError, OSError, ValueError):
-        return None
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        return None, call_reason(exc)
     try:
-        return json.loads(body)
+        return json.loads(body), None
     except ValueError:
-        return None
+        return None, "the answer is not JSON"
 
 
-def request_update(root=None, url=None):
-    data = http_json((url or state_url()) + "/update", method="POST", timeout=8)
-    if data is None:
-        return {"ok": False, "note": "the state service at %s did not answer" % (url or state_url())}
-    return {"ok": True, "note": "started" if not data.get("skipped") else data.get("reason", "skipped"), "data": data}
+def request_update(root=None, url=None, timeout=UPDATE_TIMEOUT_S):
+    """Ask the index to re-index now. Report what happened, and never guess the cause.
+
+    The endpoint answers before it runs. Measured on 2026-09-05: 0.004193 s. So a
+    timeout is not a slow embed. It is an unknown, because nobody proved that a
+    service took the request. `ok` is None then, and never True (law 7).
+    """
+    url = url or state_url(root)
+    data, reason = http_json(url + "/update", method="POST", timeout=timeout)
+    if reason == "timeout":
+        return {"ok": None, "reason": "timeout", "note":
+                "not confirmed: %s gave no answer in %g s. Nobody knows whether a run is in progress. "
+                "Run `python3 -m harness rag health`." % (url, timeout)}
+    if reason == "refused" or (reason or "").startswith("unreachable"):
+        return {"ok": False, "reason": reason, "note":
+                "the state service at %s did not answer (%s). The stack is down, or another port is set. "
+                "Start it with `python3 -m harness stack start`." % (url, reason)}
+    if reason:
+        # The service answered. An HTTP error, or a body that is not JSON, is not a dead stack.
+        return {"ok": False, "reason": reason, "note":
+                "the service at %s answered, and the answer is not a re-index (%s). Another service holds "
+                "the port, or the agent is out of date. Check `python3 -m harness ports` and "
+                "`infra/rag/up.sh logs rag-agent`." % (url, reason)}
+    data = data if isinstance(data, dict) else {}
+    note = "started" if not data.get("skipped") else "skipped: %s" % data.get("reason", "no reason given")
+    return {"ok": True, "reason": None, "note": note, "data": data}
 
 
 def health(root=None, url=None, mcp=None):
@@ -62,14 +112,22 @@ def health(root=None, url=None, mcp=None):
             report["level"] = "warnings"
         report["warnings"].append(msg)
 
-    st = http_json(url + "/state", timeout=6)
+    st, reason = http_json(url + "/state", timeout=HEALTH_TIMEOUT_S)
     if st is None:
-        broken("the index state at %s does not answer. The stack is down, or another port is set. "
-               "Start it with `infra/rag/up.sh`, or check `python3 -m harness ports`." % url)
+        if reason == "timeout":
+            broken("the index state at %s gave no answer in %g s. The service is slow, stuck, or "
+                   "unreachable. Read `infra/rag/up.sh logs rag-agent`, and check "
+                   "`python3 -m harness ports`." % (url, HEALTH_TIMEOUT_S))
+        else:
+            broken("the index state at %s does not answer (%s). The stack is down, or another port is "
+                   "set. Start it with `infra/rag/up.sh`, or check `python3 -m harness ports`."
+                   % (url, reason))
         report["exit"] = 2
         return report
-    if http_json(mcp + "/health", timeout=4) is None:
-        broken("the MCP server at %s does not answer. Searches fail. Check `infra/rag/up.sh logs rag`." % mcp)
+    mcp_data, mcp_reason = http_json(mcp + "/health", timeout=4)
+    if mcp_data is None:
+        broken("the MCP server at %s does not answer (%s). Searches fail. Check `infra/rag/up.sh logs rag`."
+               % (mcp, mcp_reason))
     idx = st.get("index") or {}
     agent = st.get("agent") or {}
     report["index"] = {

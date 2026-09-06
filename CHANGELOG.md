@@ -16,6 +16,26 @@ always meant: you talk to your agent, and the agent runs the harness.
 
 ### Added
 
+- **The rag agent removes its own orphaned chunks.** `qmd update` writes the new chunk
+  of a changed document and leaves the old vector in the database. Measured on
+  2026-09-05: the index held 434 orphaned chunks, 62% of the vectors, and the number
+  grew 8 points inside one session. A cleanup took it to 0 and lost no document, and
+  one re-index of 2 changed documents put 2 orphans back. A re-index with no content
+  change added none, so the cause is each edit and not the clock.
+
+  `infra/rag/agent/agent.py` now runs `qmd cleanup` as a third step, after `qmd embed`
+  and only when the orphan rate passes `QMD_CLEANUP_OVER`. The default is 0.10, the
+  same number that `rag health` already calls a warning, so a quiet day costs no
+  vacuum. Set `HARNESS_RAG_CLEANUP_OVER` to tune it, or to 1 to never clean. `/state`
+  reports `orphanRateBefore` and `orphanRateAfter` on every run.
+
+  A rate that the index cannot answer returns `None`, never 0.0. A default value must
+  never look like a measurement (law 7). A failed `qmd embed` stops the run before the
+  cleanup, because a cleanup then removes the vectors that the embed did not write.
+
+  Measured live on 2026-09-05: the agent ran the three steps by itself, took the rate
+  from 0.0822 to 0.0, and removed 24 orphaned chunks in 310 ms. M45 to M48.
+
 - **`python3 -m harness rag link`** and `harness/mcp.py` — the link between this agent
   and the index. Claude Code opens every MCP connection once, when its process starts,
   and it never retries. A container that starts later answers on its port and stays
@@ -34,6 +54,35 @@ always meant: you talk to your agent, and the agent runs the harness.
   command, so a script and a CI run pay nothing. It costs 0.25 s inside a session.
 
 ### Fixed
+
+- **`session close` called a healthy search index a dead service.** Measured on
+  2026-09-05 at 19:23 and again at 21:22: the close printed "the state service at
+  http://127.0.0.1:8411 did not answer". `GET /state` answered HTTP 200 in 0.0277 s
+  seconds later, and all three containers reported healthy.
+
+  Two defects produced one wrong sentence. `POST /update` ran `qmd update`, `qmd embed`
+  and `qmd cleanup` before it answered, and the client gave up at 8 s. Measured embed
+  times on this CPU: 12838 ms, 16455 ms, 59415 ms, and 161136 ms after a restart. The
+  client waited for 8 and the work took up to 161. Second, `http_json` mapped every
+  exception to `None`, so a timeout and a refused connection printed the same words.
+  Law 3: the client saw no answer, and that did not prove that the service was down.
+
+  `POST /update` now starts the run in a thread and answers at once. Measured after
+  the fix: 0.004193 s, and the run continued. `harness/rag.py` `http_json` now returns
+  `(data, reason)`, and `call_reason` names a timeout, a refused connection, an HTTP
+  code, and a body that is not JSON.
+
+  A timeout reports `ok: None` and the note "not confirmed", and the CLI exits 1. A
+  timeout proves nothing. Measured on 2026-09-06: a blackholed address and a socket that
+  listens and never accepts both time out, and no service took either request. The
+  endpoint answers in 0.004193 s, so a timeout names an abnormal stack and never a slow
+  embed. A refused connection reports `ok: False` and names `python3 -m harness stack
+  start`. An HTTP error, or a body that is not JSON, proves that a service answered, so
+  that reports `ok: False` and names `python3 -m harness ports`. Measured: the state port
+  pointed at the MCP port returns HTTP 404 while every container is healthy.
+
+  `start_update` frees the reservation when the thread does not start. A reservation with
+  no run blocks every later run until a container restart. M49 to M57.
 
 - **The board page answered from a reading up to 5 minutes old.** The user closed a
   task at 17:33 on 2026-09-05 and read TODO on the page. The tree held the task in
