@@ -78,6 +78,45 @@ always meant: you talk to your agent, and the agent runs the harness.
 
 ### Fixed
 
+- **The Git guard denied an ordinary commit message.** PR 5 closed every bypass of the
+  history guard, and its `ValueError` branch denies a command that it cannot read. The
+  guard read the command one line at a time, so it cut every construct that crosses a
+  newline. Measured on 2026-09-06, on `main`:
+
+  ```text
+  git commit -F - <<'EOF'          deny: "the hook cannot inspect its quoting safely"
+  fix: the agent doesn't guess
+  EOF
+
+  git status # don't worry         deny
+  python3 -c "\nprint(1)\n"        deny
+  ```
+
+  One apostrophe in a commit message blocked the commit, and the deny said "Remove the
+  protected operation" for a command that carried none. A line is not a unit of shell
+  syntax. A heredoc body, a quoted string, and a `python3 -c` program all cross a
+  newline.
+
+  `_lex` now reads the whole command once. A newline leaves the whitespace set and
+  joins the punctuation set, so two commands on two lines stay two segments and a
+  quoted string that holds a newline stays one word. `_strip_heredocs` removes every
+  heredoc body first, because the body is data for another program and the shell never
+  runs it. The heredoc marker stays on its line, so `git push --force <<X` is still
+  denied.
+
+  The review of this change found two more defects in it. The comment stripper cut from
+  the first `#` to the end of the whole command, so `echo # '` on one line removed
+  `git push --force` on the next, and the guard allowed the push. It now removes a
+  comment from the end of every line, and never a line. The heredoc stripper read no
+  quoted tag that holds a dash, and it removed every line below a heredoc whose
+  terminator it never found. It now reads `<<'END-OF-FILE'`, `<<EOF.txt`, and the
+  `<<-` form, and it keeps every line when the terminator is missing. An unquoted tag
+  still starts with a letter or an underscore, because a tag that starts with a digit
+  reads `echo $((1<<2))` as a heredoc that opens tag `2`.
+
+  Measured after the fix: 31 probes, 0 failures. Every bypass of every review still
+  denies, and every false positive is gone. M64 to M67, and M71 to M73.
+
 - **Git flag ordering bypassed generated history guards.** The permission
   template matches command prefixes, so `git commit -q --amend` and
   `git push origin main --force` did not match their intended deny entries.

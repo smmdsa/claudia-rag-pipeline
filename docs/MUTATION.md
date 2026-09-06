@@ -75,9 +75,15 @@ not whether one does. Baseline: 106 tests, 0 red. After the last restore: 106 te
 | M61 | `scripts/contributors.py` | the writer replaces the whole README, and not the block | 2 — `ContributorBlockTest.test_a_new_name_lands_in_the_block`, `ContributorBlockTest.test_check_is_quiet_when_the_list_is_current` |
 | M62 | `scripts/contributors.py` | an empty list is written, and it removes every earned name | 3 — `ContributorBlockTest.test_an_empty_list_leaves_every_name_in_place`, `ContributorBlockTest.test_an_answer_of_only_bots_leaves_every_name_in_place`, `ContributorBlockTest.test_an_empty_list_never_reports_a_stale_file` |
 | M63 | `scripts/contributors.py` | a message names the repository slug instead of the API url | 1 — `ContributorBlockTest.test_a_message_names_the_api_url_and_not_the_slug` |
+| M65 | `harness/hooks.py` | a heredoc body is read as commands, so data denies a command | 1 — `HookTest.test_pre_bash_allows_a_command_that_a_line_reader_cannot_lex` |
+| M66 | `harness/hooks.py` | a newline is whitespace, so two commands on two lines read as one | 1 — `HookTest.test_pre_bash_denies_history_changes_with_reordered_git_flags` |
+| M67 | `harness/hooks.py` | a command that the hook cannot read is allowed | 1 — `HookTest.test_pre_bash_still_denies_a_protected_command_that_carries_a_heredoc` |
 | M68 | `scripts/contributors.py` | the fresh commit page is never read, so a new name is lost to the cache | 2 — `ContributorBlockTest.test_a_name_the_cached_aggregate_missed_still_lands`, `ContributorBlockTest.test_the_aggregate_ranks_first_and_the_fresh_name_follows` |
 | M69 | `scripts/contributors.py` | the cached aggregate is never read, so every old name and the rank go | 6 — `ContributorBlockTest.test_a_new_name_lands_in_the_block` and 5 more |
-| M70 | `scripts/contributors.py` | a bot in the commit page is thanked as a person | 1 — `ContributorBlockTest.test_a_bot_never_appears` |
+| M70 | `scripts/contributors.py` | a bot in the commit page is thanked as a person | 1 — `ContributorBlockTest.test_a_bot_never_appears` || M64 | `harness/hooks.py` | the guard reads one line at a time, and cuts every multi-line quote | 2 — `HookTest.test_pre_bash_allows_a_command_that_a_line_reader_cannot_lex`, `HookTest.test_pre_bash_denies_history_changes_with_reordered_git_flags` |
+| M71 | `harness/hooks.py` | the comment stripper cuts to the end of the whole command, so a comment on line 1 hides a command on line 2 | 1 — `HookTest.test_pre_bash_reads_a_command_under_a_comment_on_an_earlier_line` |
+| M72 | `harness/hooks.py` | a heredoc with no terminator removes every line below it | 1 — `HookTest.test_pre_bash_reads_a_command_below_a_heredoc_it_cannot_close` |
+| M73 | `harness/hooks.py` | the tag regex reads no quoted tag and no dash, so a body reaches the lexer | 2 — `HookTest.test_pre_bash_allows_a_command_that_a_line_reader_cannot_lex`, `HookTest.test_pre_bash_strips_every_heredoc_tag_shape` |
 
 M38 and M39 ran on 2026-09-05, after `./infra/rag/up.sh` refused to run on a stack that
 was already up. Baseline 151 tests, 0 red. After the restore: 151 tests, 0 red.
