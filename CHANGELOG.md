@@ -69,6 +69,35 @@ always meant: you talk to your agent, and the agent runs the harness.
 
 ### Fixed
 
+- **The Git guard denied an ordinary commit message.** PR 5 closed every bypass of the
+  history guard, and its `ValueError` branch denies a command that it cannot read. The
+  guard read the command one line at a time, so it cut every construct that crosses a
+  newline. Measured on 2026-09-06, on `main`:
+
+  ```text
+  git commit -F - <<'EOF'          deny: "the hook cannot inspect its quoting safely"
+  fix: the agent doesn't guess
+  EOF
+
+  git status # don't worry         deny
+  python3 -c "\nprint(1)\n"        deny
+  ```
+
+  One apostrophe in a commit message blocked the commit, and the deny said "Remove the
+  protected operation" for a command that carried none. A line is not a unit of shell
+  syntax. A heredoc body, a quoted string, and a `python3 -c` program all cross a
+  newline.
+
+  `_lex` now reads the whole command once. A newline leaves the whitespace set and
+  joins the punctuation set, so two commands on two lines stay two segments and a
+  quoted string that holds a newline stays one word. `_strip_heredocs` removes every
+  heredoc body first, because the body is data for another program and the shell never
+  runs it. The heredoc marker stays on its line, so `git push --force <<X` is still
+  denied.
+
+  Measured after the fix: 25 probes, 0 failures. Every bypass of the first review still
+  denies, and every false positive is gone. M64 to M67.
+
 - **Git flag ordering bypassed generated history guards.** The permission
   template matches command prefixes, so `git commit -q --amend` and
   `git push origin main --force` did not match their intended deny entries.

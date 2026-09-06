@@ -23,11 +23,13 @@ TASK_FILE = re.compile(r"(^|/)work/.*TASK-\d{4}[^/]*\.md$")
 PRIORITY_LINE = re.compile(r"^\s*priority(-[a-z]+)?\s*:.*$", re.M)
 MOVE_ON_WORK = re.compile(r"(^|[\s;&|(])(mv|cp|rm|rmdir)\s[^;&|]*\bwork/(sprints|backlog)\b")
 GIT_MV_ON_WORK = re.compile(r"\bgit\s+(mv|rm)\s[^;&|]*\bwork/")
-SHELL_SEPARATOR = frozenset((";", "&&", "||", "|", "&", "(", ")"))
+SHELL_SEPARATOR = frozenset((";", "&&", "||", "|", "&", "(", ")", "\n"))
 SHELL_KEYWORD = frozenset(("then", "do", "{"))
 COMMAND_WRAPPER = frozenset(("nohup", "sudo", "time", "nice"))
 SHELL_COMMAND = frozenset(("bash", "dash", "ksh", "sh", "zsh"))
 GIT_OPTION_WITH_VALUE = frozenset(("-C", "-c", "--git-dir", "--work-tree"))
+# `<<TAG`, `<<'TAG'`, `<<"TAG"`, and the `<<-` form that strips leading tabs.
+HEREDOC_TAG = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
 
 
 def read_payload(stream=None):
@@ -124,24 +126,79 @@ def _protected_git_operation(command, depth=0):
     """
     if depth > 3:
         return ("nested shell command", "the hook cannot inspect more than three shell levels")
-    for line in command.splitlines() or [command]:
+    words = _lex(_strip_heredocs(command))
+    if words is None:
+        return ("unparsed shell command", "the hook cannot inspect its quoting safely")
+    segment = []
+    for word in words + [";"]:
+        if word not in SHELL_SEPARATOR:
+            segment.append(word)
+            continue
+        operation = _protected_git_segment(segment, depth)
+        if operation:
+            return operation
+        segment = []
+    return None
+
+
+def _strip_heredocs(command):
+    """Return the command with every heredoc body removed.
+
+    A heredoc body is data for another program. The shell never runs it as a command,
+    so the hook has nothing to read there. The body also holds quotes that no shell
+    reads as quotes, and a lexer that reads them fails on an ordinary commit message.
+
+    Measured on 2026-09-06: `git commit -F - <<'EOF'` with the word `doesn't` in the
+    message denied the commit. The heredoc marker stays on its line, so a protected
+    command that carries a heredoc is still read and still denied.
+    """
+    lines = command.split("\n")
+    kept = []
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        kept.append(line)
+        index += 1
+        for tag in [m.group(2) for m in HEREDOC_TAG.finditer(line)]:
+            while index < len(lines) and lines[index].strip() != tag:
+                index += 1
+            index += 1  # the terminator line closes the body and carries no command
+    return "\n".join(kept)
+
+
+def _drop_comment(line):
+    """Return the line without its trailing `#` comment, or None when it holds none."""
+    found = re.search(r"(?:^|\s)#", line)
+    return line[:found.start()] if found else None
+
+
+def _lex(command):
+    """Return the words of the whole command, or None when the hook cannot read it.
+
+    The lexer reads the command once, and never one line at a time. A line is not a
+    unit of shell syntax: a quoted string, a `python3 -c` program, and a heredoc all
+    cross a newline. A lexer that reads one line at a time cuts them, sees an odd
+    number of quotes, and denies an ordinary command.
+
+    A newline leaves the whitespace set and joins the punctuation set, so it becomes
+    one token. Two commands on two lines stay two segments, and a quoted string that
+    holds a newline stays one word.
+
+    A command that fails once can carry a trailing comment. The shell drops a comment
+    before it runs the command, so the hook drops it too. A command that still fails
+    is a command that the hook must not guess at.
+    """
+    for text in (command, _drop_comment(command)):
+        if text is None:
+            continue
         try:
-            lexer = shlex.shlex(line, posix=True, punctuation_chars=";&|()")
+            lexer = shlex.shlex(text, posix=True, punctuation_chars=";&|()\n")
             lexer.whitespace_split = True
             lexer.commenters = ""
-            words = list(lexer)
+            lexer.whitespace = " \t\r"
+            return list(lexer)
         except ValueError:
-            return ("unparsed shell command", "the hook cannot inspect its quoting safely")
-
-        segment = []
-        for word in words + [";"]:
-            if word not in SHELL_SEPARATOR:
-                segment.append(word)
-                continue
-            operation = _protected_git_segment(segment, depth)
-            if operation:
-                return operation
-            segment = []
+            continue
     return None
 
 

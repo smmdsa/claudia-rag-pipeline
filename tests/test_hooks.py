@@ -146,6 +146,39 @@ class HookTest(unittest.TestCase):
             )
             self.assertEqual(out, "", cmd)
 
+    def test_pre_bash_allows_a_command_that_a_line_reader_cannot_lex(self):
+        """THE regression of the merge of PR 5.
+
+        The guard read the command one line at a time. A line is not a unit of shell
+        syntax: a heredoc body, a quoted string, and a `python3 -c` program all cross
+        a newline. The reader cut them, counted an odd number of quotes, and denied.
+
+        Measured on 2026-09-06: `git commit -F -` with the word `doesn't` in the
+        message denied the commit, and the deny said "Remove the protected
+        operation" for a command that carried none.
+        """
+        for cmd in (
+            "git commit -F - <<'EOF'\nfix: the agent doesn't guess\nEOF",
+            "git status # don't worry",
+            "cat <<'EOF' > f\nit's fine\nEOF",
+            'python3 - <<PY\ns = """doc"""\nprint("it\'s fine")\nPY',
+            'python3 -c "\nprint(1)\n"',
+            # A heredoc body is data for another program. The shell never runs it.
+            "cat <<'EOF'\ngit push --force\nEOF",
+        ):
+            _, out, _ = run_hook(
+                self.root, "pre-bash", {"tool_name": "Bash", "tool_input": {"command": cmd}}
+            )
+            self.assertEqual(out, "", cmd)
+
+    def test_pre_bash_still_denies_a_protected_command_that_carries_a_heredoc(self):
+        # The heredoc marker stays on its line, so the command is still read.
+        for cmd in ("git push --force <<X\n'\nX", "git push --force # '", "echo 'unbalanced"):
+            _, out, _ = run_hook(
+                self.root, "pre-bash", {"tool_name": "Bash", "tool_input": {"command": cmd}}
+            )
+            self.assertEqual(decision(out), "deny", cmd)
+
     def test_pre_bash_names_the_protected_push_argument(self):
         _, out, _ = run_hook(
             self.root, "pre-bash", {"tool_name": "Bash", "tool_input": {"command": "git push origin main -f"}}
