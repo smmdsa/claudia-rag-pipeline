@@ -35,13 +35,13 @@ always meant: you talk to your agent, and the agent runs the harness.
 
 ### Fixed
 
-- **Git flag ordering could bypass generated history guards.** The permission
+- **Git flag ordering bypassed generated history guards.** The permission
   template matches command prefixes, so `git commit -q --amend` and
   `git push origin main --force` did not match their intended deny entries.
   `pre-bash` now parses each shell segment and denies amend and forced-push
-  operations independently of flag order. This closes issue 3.
+  operations for all supported command prefixes and Git flag orders. This closes issue 3.
 
-- **`session open` could pair the latest journal entry with an older document.**
+- **`session open` paired the latest journal entry with the wrong document.**
   The slug came from the journal while the document came from alphabetical
   filename order. The document now comes from that same slug. A missing or malformed
   slug reports no document instead of substituting unrelated instructions. This

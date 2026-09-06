@@ -24,6 +24,10 @@ PRIORITY_LINE = re.compile(r"^\s*priority(-[a-z]+)?\s*:.*$", re.M)
 MOVE_ON_WORK = re.compile(r"(^|[\s;&|(])(mv|cp|rm|rmdir)\s[^;&|]*\bwork/(sprints|backlog)\b")
 GIT_MV_ON_WORK = re.compile(r"\bgit\s+(mv|rm)\s[^;&|]*\bwork/")
 SHELL_SEPARATOR = frozenset((";", "&&", "||", "|", "&", "(", ")"))
+SHELL_KEYWORD = frozenset(("then", "do", "{"))
+COMMAND_WRAPPER = frozenset(("nohup", "sudo", "time", "nice"))
+SHELL_COMMAND = frozenset(("bash", "dash", "ksh", "sh", "zsh"))
+GIT_OPTION_WITH_VALUE = frozenset(("-C", "-c", "--git-dir", "--work-tree"))
 
 
 def read_payload(stream=None):
@@ -103,71 +107,157 @@ def pre_bash(root, payload):
     cmd = (payload.get("tool_input") or {}).get("command", "") or ""
     protected = _protected_git_operation(cmd)
     if protected:
-        return _deny("this command runs `%s` with history-changing flags. "
-                     "Use a non-history-rewriting Git operation instead." % protected)
+        operation, reason = protected
+        return _deny("The hook denied `%s` because %s. Remove the protected operation." %
+                     (operation, reason))
     if MOVE_ON_WORK.search(cmd) or GIT_MV_ON_WORK.search(cmd):
         return _deny("this command moves or removes files under work/ by hand. The folder is the state. "
                      "Use `python3 -m harness start|done|back|assign`, or `git rm` through the user.")
     return 0
 
 
-def _protected_git_operation(command):
-    """Name a protected Git operation, independent of valid flag ordering.
+def _protected_git_operation(command, depth=0):
+    """Name a protected Git operation and give the reason for the deny.
 
     Claude permission rules match command text. The Bash hook receives the full
-    command and can inspect each shell segment before it runs. Invalid shell input
-    is left to the shell instead of breaking the hook.
+    command. The hook checks each shell segment before the shell runs it.
     """
-    try:
-        lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|()")
-        lexer.whitespace_split = True
-        lexer.commenters = ""
-        words = list(lexer)
-    except ValueError:
-        return None
+    if depth > 3:
+        return ("nested shell command", "the hook cannot inspect more than three shell levels")
+    for line in command.splitlines() or [command]:
+        try:
+            lexer = shlex.shlex(line, posix=True, punctuation_chars=";&|()")
+            lexer.whitespace_split = True
+            lexer.commenters = ""
+            words = list(lexer)
+        except ValueError:
+            return ("unparsed shell command", "the hook cannot inspect its quoting safely")
 
-    segment = []
-    for word in words + [";"]:
-        if word not in SHELL_SEPARATOR:
-            segment.append(word)
-            continue
-        operation = _protected_git_segment(segment)
-        if operation:
-            return operation
         segment = []
+        for word in words + [";"]:
+            if word not in SHELL_SEPARATOR:
+                segment.append(word)
+                continue
+            operation = _protected_git_segment(segment, depth)
+            if operation:
+                return operation
+            segment = []
     return None
 
 
-def _protected_git_segment(words):
+def _protected_git_segment(words, depth=0):
     index = 0
+    while index < len(words) and words[index] in SHELL_KEYWORD:
+        index += 1
     while index < len(words) and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", words[index]):
         index += 1
-    if index < len(words) and words[index] in ("command", "exec"):
+    while index < len(words) and os.path.basename(words[index]) in ("command", "exec", "env"):
+        wrapper = os.path.basename(words[index])
         index += 1
-    if index < len(words) and words[index] == "env":
+        if wrapper == "env":
+            while index < len(words) and (words[index].startswith("-") or "=" in words[index]):
+                index += 1
+    while index < len(words) and os.path.basename(words[index]) in COMMAND_WRAPPER:
+        wrapper = os.path.basename(words[index])
         index += 1
-        while index < len(words) and (words[index].startswith("-") or "=" in words[index]):
-            index += 1
-    if index >= len(words) or words[index] != "git":
+        if wrapper == "sudo":
+            index = _skip_sudo_options(words, index)
+        elif wrapper == "nice":
+            index = _skip_nice_options(words, index)
+        else:
+            while index < len(words) and words[index].startswith("-"):
+                index += 1
+    if index >= len(words):
         return None
+
+    executable = os.path.basename(words[index])
+    if executable in SHELL_COMMAND:
+        shell_args = words[index + 1:]
+        command_at = next((i for i, word in enumerate(shell_args) if word == "-c"), None)
+        if command_at is not None and command_at + 1 < len(shell_args):
+            return _protected_git_operation(shell_args[command_at + 1], depth + 1)
+        return None
+    if executable != "git":
+        return None
+
     words = words[index + 1:]
-    known = ("commit", "push")
-    command_at = next((i for i, word in enumerate(words) if word in known), None)
+    command_at = _git_subcommand_index(words)
     if command_at is None:
         return None
     command = words[command_at]
     args = words[command_at + 1:]
-    if command == "commit" and any(arg == "--amend" or arg.startswith("--amend=") for arg in args):
-        return "git commit --amend"
-    if command == "push" and any(_force_push_flag(arg) for arg in args):
-        return "git push --force"
+    if command == "commit":
+        flag = next((arg for arg in args if arg == "--amend" or arg.startswith("--amend=")), None)
+        if flag:
+            return ("git commit %s" % flag, "%s rewrites the last commit" % flag)
+    if command == "push":
+        for arg in args:
+            protected_arg = _protected_push_arg(arg)
+            if protected_arg:
+                return ("git push %s" % protected_arg,
+                        "%s can rewrite or remove remote history" % protected_arg)
     return None
 
 
-def _force_push_flag(arg):
+def _skip_sudo_options(words, index):
+    """Return the command index after supported sudo options."""
+    with_value = ("-C", "-D", "-g", "-h", "-p", "-R", "-r", "-t", "-u",
+                  "--chdir", "--close-from", "--group", "--host", "--prompt",
+                  "--role", "--type", "--user")
+    while index < len(words):
+        word = words[index]
+        if word == "--":
+            return index + 1
+        if word in with_value:
+            index += 2
+            continue
+        if word.startswith("-"):
+            index += 1
+            continue
+        return index
+    return index
+
+
+def _skip_nice_options(words, index):
+    """Return the command index after supported nice options."""
+    if index < len(words) and words[index] in ("-n", "--adjustment"):
+        return min(index + 2, len(words))
+    if index < len(words) and re.fullmatch(r"-\d+", words[index]):
+        return index + 1
+    return index
+
+
+def _git_subcommand_index(words):
+    """Return the index of the first non-option Git word."""
+    index = 0
+    while index < len(words):
+        word = words[index]
+        if word == "--":
+            return index + 1 if index + 1 < len(words) else None
+        if word in GIT_OPTION_WITH_VALUE:
+            index += 2
+            continue
+        if word.startswith(("--git-dir=", "--work-tree=")):
+            index += 1
+            continue
+        if word.startswith("-"):
+            index += 1
+            continue
+        return index
+    return None
+
+
+def _protected_push_arg(arg):
+    """Return the protected push argument, or return None."""
     if arg in ("--force", "--force-with-lease") or arg.startswith(("--force=", "--force-with-lease=")):
-        return True
-    return arg.startswith("-") and not arg.startswith("--") and "f" in arg[1:]
+        return arg
+    if arg in ("--delete", "-d"):
+        return arg
+    if arg.startswith("+") or arg.startswith(":") or arg.endswith(":"):
+        return arg
+    if arg.startswith("-") and not arg.startswith("--") and "f" in arg[1:]:
+        return arg
+    return None
 
 
 def _touches_work(root, payload):

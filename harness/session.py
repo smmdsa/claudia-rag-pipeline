@@ -65,10 +65,9 @@ def _git(root, args):
 def last_session_doc(root, last=None):
     """Return the document named by the last journal entry.
 
-    A session slug and its document are one record. Selecting the document by
-    filename order can pair current journal metadata with an older handoff. A
-    malformed or missing document is reported as absent instead of substituted
-    with unrelated instructions.
+    A session slug and its document form one record. Filename order can pair current
+    journal metadata with an older handoff. The function reports a malformed or
+    missing document as absent. It does not substitute unrelated instructions.
     """
     last = last if last is not None else journal.last_session(root)
     slug = last.get("slug") if last else None
