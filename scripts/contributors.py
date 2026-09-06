@@ -42,9 +42,9 @@ def repo_slug():
     return found.group(1)
 
 
-def contributors(slug, token=None):
+def contributors(url, token=None):
     """Return one login per person, most commits first. Skip every bot account."""
-    req = urllib.request.Request(API % slug, headers={
+    req = urllib.request.Request(url, headers={
         "Accept": "application/vnd.github+json", "User-Agent": "harness-contributors"})
     if token:
         req.add_header("Authorization", "Bearer %s" % token)
@@ -58,9 +58,7 @@ def contributors(slug, token=None):
 
 
 def block(logins):
-    """Return the markdown of the list. An empty list says so, and never lies."""
-    if not logins:
-        return "This list is empty. The GitHub API reports no contributor yet."
+    """Return the markdown of the list. `main` never calls this with an empty list."""
     return " · ".join("[@%s](https://github.com/%s)" % (name, name) for name in logins)
 
 
@@ -76,13 +74,18 @@ def rewrite(text, body):
 
 def main(argv):
     check = "--check" in argv
-    slug = repo_slug()
+    url = API % repo_slug()
     try:
-        logins = contributors(slug, os.environ.get("GITHUB_TOKEN"))
+        logins = contributors(url, os.environ.get("GITHUB_TOKEN"))
     except (urllib.error.URLError, OSError, ValueError) as exc:
         # No answer is not an empty list. A wrong list removes a name that a person earned.
-        print("contributors: the GitHub API at %s gave no answer (%s). README.md is unchanged."
-              % (slug, exc))
+        print("contributors: %s gave no answer (%s). README.md is unchanged." % (url, exc))
+        return 0
+    if not logins:
+        # An empty list is not an answer either. The API answers with an empty array on
+        # a repository that it did not finish counting, and every name would go.
+        print("contributors: %s listed no person. README.md is unchanged, because an "
+              "empty list is not a measurement." % url)
         return 0
     with open(README, encoding="utf-8") as fh:
         text = fh.read()

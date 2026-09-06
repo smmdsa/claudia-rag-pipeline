@@ -24,9 +24,9 @@ always meant: you talk to your agent, and the agent runs the harness.
   The list holds names and no commit counts. A count changes on every push, and that
   costs one commit per push. A name changes when a new person lands a first patch.
 
-  An API that gives no answer leaves the file alone. An empty list is not an answer,
-  and a wrong list removes a name that a person earned (law 7). The script skips every
-  bot account. `--check` reports a stale list and writes nothing, so a workflow can
+  An API that gives no answer leaves the file alone, and so does an API that answers
+  with an empty list. A wrong list removes a name that a person earned (law 7). The
+  script skips every bot account, and an answer of only bots leaves the file alone too. `--check` reports a stale list and writes nothing, so a workflow can
   read the state without a side effect. Standard library only, and the one action is
   pinned by commit. M58 to M61.
 

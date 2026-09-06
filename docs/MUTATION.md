@@ -73,6 +73,8 @@ not whether one does. Baseline: 106 tests, 0 red. After the last restore: 106 te
 | M59 | `scripts/contributors.py` | a bot account is thanked as a person | 1 — `ContributorBlockTest.test_a_bot_never_appears` |
 | M60 | `scripts/contributors.py` | `--check` writes the file instead of reporting the stale list | 1 — `ContributorBlockTest.test_check_reports_a_stale_list_and_writes_nothing` |
 | M61 | `scripts/contributors.py` | the writer replaces the whole README, and not the block | 2 — `ContributorBlockTest.test_a_new_name_lands_in_the_block`, `ContributorBlockTest.test_check_is_quiet_when_the_list_is_current` |
+| M62 | `scripts/contributors.py` | an empty list is written, and it removes every earned name | 3 — `ContributorBlockTest.test_an_empty_list_leaves_every_name_in_place`, `ContributorBlockTest.test_an_answer_of_only_bots_leaves_every_name_in_place`, `ContributorBlockTest.test_an_empty_list_never_reports_a_stale_file` |
+| M63 | `scripts/contributors.py` | a message names the repository slug instead of the API url | 1 — `ContributorBlockTest.test_a_message_names_the_api_url_and_not_the_slug` |
 
 M38 and M39 ran on 2026-09-05, after `./infra/rag/up.sh` refused to run on a stack that
 was already up. Baseline 151 tests, 0 red. After the restore: 151 tests, 0 red.

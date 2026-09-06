@@ -115,6 +115,36 @@ class ContributorBlockTest(unittest.TestCase):
         text = io.open(self.readme, encoding="utf-8").read()
         self.assertIn("[@first](https://github.com/first)", text)
 
+    def test_an_empty_list_leaves_every_name_in_place(self):
+        # THE regression that Copilot found on PR 7. The API answers with an empty
+        # array while it counts a repository, and every earned name would go.
+        self.use([])
+        self.assertEqual(self.mod.main([]), 0)
+        text = io.open(self.readme, encoding="utf-8").read()
+        self.assertIn("[@first](https://github.com/first)", text)
+
+    def test_an_answer_of_only_bots_leaves_every_name_in_place(self):
+        self.use(rows(("copilot", 9, "Bot"), ("dependabot[bot]", 5, "User")))
+        self.assertEqual(self.mod.main([]), 0)
+        text = io.open(self.readme, encoding="utf-8").read()
+        self.assertIn("[@first](https://github.com/first)", text)
+        self.assertNotIn("copilot", text)
+
+    def test_an_empty_list_never_reports_a_stale_file(self):
+        self.use([])
+        self.assertEqual(self.mod.main(["--check"]), 0)
+
+    def test_a_message_names_the_api_url_and_not_the_slug(self):
+        self.use_no_network()
+        out = io.StringIO()
+        real = sys.stdout
+        sys.stdout = out
+        try:
+            self.mod.main([])
+        finally:
+            sys.stdout = real
+        self.assertIn("https://api.github.com/repos/owner/name/contributors", out.getvalue())
+
     def test_check_reports_a_stale_list_and_writes_nothing(self):
         self.use(rows(("first", 30, "User"), ("second", 2, "User")))
         self.assertEqual(self.mod.main(["--check"]), 1)
