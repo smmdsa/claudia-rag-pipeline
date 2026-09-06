@@ -18,12 +18,15 @@ next to the code.
 These people wrote the code of this repository. Every merged patch adds a name.
 
 <!-- contributors:start -->
-[@smmdsa](https://github.com/smmdsa)
+<table>
+  <tr><td align="center"><a href="https://github.com/smmdsa"><img src="https://avatars.githubusercontent.com/u/76018666?v=4&s=96" width="96" alt=""><br><sub><b>smmdsa</b></sub></a></td><td align="center"><a href="https://github.com/AldereteRuben"><img src="https://avatars.githubusercontent.com/u/58454065?v=4&s=96" width="96" alt=""><br><sub><b>AldereteRuben</b></sub></a></td></tr>
+</table>
 <!-- contributors:end -->
 
-`scripts/contributors.py` writes that list from the GitHub API, and
-`.github/workflows/contributors.yml` runs it on every push to `main`. The list holds
-names and no counts, so it changes when a new person lands a first patch.
+`scripts/contributors.py` writes that list from the GitHub API. A person runs it
+once a week and reads the diff before the commit. No workflow writes to this
+repository. The list holds names and pictures, and no commit counts, so it changes
+when a new person lands a first patch.
 
 `ARCHITECTURE.md` names every component, port, and contract. `docs/DESIGN-LAWS.md`
 records the twelve laws and the measured failures behind them. `docs/PROPOSALS.md`

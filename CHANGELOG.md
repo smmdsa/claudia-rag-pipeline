@@ -16,13 +16,22 @@ always meant: you talk to your agent, and the agent runs the harness.
 
 ### Added
 
-- **`README.md` thanks the contributors, and a workflow keeps the list current.**
-  `scripts/contributors.py` reads the GitHub API and writes the names between two
-  markers in `README.md`. `.github/workflows/contributors.yml` runs it on every push
-  to `main`, and it commits only when the block changes.
+- **`README.md` thanks the contributors, with a picture for each one.**
+  `scripts/contributors.py` reads the GitHub API and writes the names and the pictures
+  between two markers in `README.md`. A person runs it once a week and reads the diff.
 
-  The list holds names and no commit counts. A count changes on every push, and that
-  costs one commit per push. A name changes when a new person lands a first patch.
+  No workflow runs it. A job that writes to the default branch needs a token with write
+  rights, and it commits with no human in the path. The list changes a few times a
+  year, so the command costs less than the surface that the automation opens.
+
+  The script reads two endpoints. `/contributors` aggregates the whole history, and
+  GitHub caches it: measured on 2026-09-06, it named 1 person while the repository page
+  named 3, and a contributor who landed 40 minutes earlier was missing. `/commits`
+  resolves the author of each recent commit and is fresh, and it carries the last page
+  only. The union answers both questions.
+
+  The list holds names and pictures, and no commit counts. A count changes on every
+  push. A name changes when a new person lands a first patch.
 
   An API that gives no answer leaves the file alone, and so does an API that answers
   with an empty list. A wrong list removes a name that a person earned (law 7). The

@@ -7,11 +7,30 @@ it changes nothing else. It uses the Python standard library only.
     python3 scripts/contributors.py            write README.md
     python3 scripts/contributors.py --check    exit 1 when the list is stale
 
-The script writes names and never commit counts. A count changes on every push, and
-that costs one commit per push. A name changes when a new person lands a patch.
+A person runs this, once a week, and reads the diff before the commit. No workflow
+runs it. A job that writes to the default branch needs a token with write rights, and
+it commits with no human in the path. That is a place to hide a change. The list of
+contributors changes a few times a year, so a weekly command costs less than the
+surface that automation opens.
 
-The GitHub API counts commits on the default branch, so a name appears after the
-first merge, and never while the pull request is open. The script skips every bot.
+The script reads TWO endpoints and joins the answers.
+
+`/contributors` aggregates the whole history, and GitHub caches it. Measured on
+2026-09-06: it named 1 person while the repository page named 3, and a contributor
+who landed 40 minutes earlier was missing. A cache alone loses a new name.
+
+`/commits` resolves the author of each recent commit to an account, and it is fresh.
+It carries the last page only, so it loses an old name. Neither endpoint answers
+alone. The union of the two answers both questions.
+
+The script writes names and pictures, and never commit counts. A count changes on
+every push, and that costs one commit per push. A name changes when a new person
+lands a first patch.
+
+A co-author trailer names an address, and not an account. GitHub resolves those
+addresses on its own page, and the API does not. Measured: a search for
+`noreply@anthropic.com` returned 0 accounts. This script never guesses a login from
+an address, so a co-author appears here only when that person also authors a commit.
 """
 import json
 import os
@@ -24,8 +43,11 @@ import urllib.request
 README = "README.md"
 START = "<!-- contributors:start -->"
 END = "<!-- contributors:end -->"
-API = "https://api.github.com/repos/%s/contributors?per_page=100"
+CONTRIBUTORS_URL = "https://api.github.com/repos/%s/contributors?per_page=100"
+COMMITS_URL = "https://api.github.com/repos/%s/commits?per_page=100"
 TIMEOUT_S = 20
+AVATAR_PX = 96
+PER_ROW = 6
 
 
 def repo_slug():
@@ -42,24 +64,64 @@ def repo_slug():
     return found.group(1)
 
 
-def contributors(url, token=None):
-    """Return one login per person, most commits first. Skip every bot account."""
+def get_json(url, token=None):
+    """Return the parsed answer of one GET. The caller handles every error."""
     req = urllib.request.Request(url, headers={
         "Accept": "application/vnd.github+json", "User-Agent": "harness-contributors"})
     if token:
         req.add_header("Authorization", "Bearer %s" % token)
     with urllib.request.urlopen(req, timeout=TIMEOUT_S) as resp:
-        rows = json.loads(resp.read().decode("utf-8"))
-    people = [(r.get("login") or "", r.get("contributions") or 0) for r in rows
-              if r.get("type") != "Bot" and not (r.get("login") or "").endswith("[bot]")]
-    people = [p for p in people if p[0]]
-    people.sort(key=lambda p: (-p[1], p[0].lower()))
-    return [login for login, _ in people]
+        return json.loads(resp.read().decode("utf-8"))
 
 
-def block(logins):
-    """Return the markdown of the list. `main` never calls this with an empty list."""
-    return " · ".join("[@%s](https://github.com/%s)" % (name, name) for name in logins)
+def is_person(login, kind):
+    """Return True for a human account. A bot never lands in a thanks list."""
+    return bool(login) and kind != "Bot" and not login.endswith("[bot]")
+
+
+def people(slug, token=None):
+    """Return (login, avatar) per person, most commits first.
+
+    Read the cached aggregate first, then the fresh page of commits. A name from
+    either endpoint counts. A rank from the aggregate wins, because it reads the
+    whole history.
+    """
+    found = {}
+    order = {}
+    for row in get_json(CONTRIBUTORS_URL % slug, token):
+        login = row.get("login") or ""
+        if is_person(login, row.get("type")):
+            found[login] = row.get("avatar_url") or ""
+            order[login] = -(row.get("contributions") or 0)
+    rank = len(order)
+    for row in get_json(COMMITS_URL % slug, token):
+        author = row.get("author") or {}
+        login = author.get("login") or ""
+        if not is_person(login, author.get("type")):
+            continue
+        if login not in found:
+            found[login] = author.get("avatar_url") or ""
+            rank += 1
+            order[login] = rank  # after every ranked name, and before the next new one
+    return sorted(((login, found[login]) for login in found),
+                  key=lambda p: (order[p[0]], p[0].lower()))
+
+
+def cell(login, avatar):
+    src = "%s%ss=%d" % (avatar, "&" if "?" in avatar else "?", AVATAR_PX) if avatar \
+        else "https://github.com/%s.png?size=%d" % (login, AVATAR_PX)
+    return ('<td align="center"><a href="https://github.com/%s">'
+            '<img src="%s" width="%d" alt=""><br><sub><b>%s</b></sub></a></td>'
+            % (login, src, AVATAR_PX, login))
+
+
+def block(persons):
+    """Return the table. `main` never calls this with an empty list."""
+    rows = []
+    for i in range(0, len(persons), PER_ROW):
+        cells = "".join(cell(login, avatar) for login, avatar in persons[i:i + PER_ROW])
+        rows.append("  <tr>%s</tr>" % cells)
+    return "<table>\n%s\n</table>" % "\n".join(rows)
 
 
 def rewrite(text, body):
@@ -74,31 +136,35 @@ def rewrite(text, body):
 
 def main(argv):
     check = "--check" in argv
-    url = API % repo_slug()
+    slug = repo_slug()
+    # Name the urls, and never the slug. A reader who debugs a rate limit or an auth
+    # error needs the address that answered, not the name of the repository.
+    urls = "%s and %s" % (CONTRIBUTORS_URL % slug, COMMITS_URL % slug)
     try:
-        logins = contributors(url, os.environ.get("GITHUB_TOKEN"))
+        persons = people(slug, os.environ.get("GITHUB_TOKEN"))
     except (urllib.error.URLError, OSError, ValueError) as exc:
         # No answer is not an empty list. A wrong list removes a name that a person earned.
-        print("contributors: %s gave no answer (%s). README.md is unchanged." % (url, exc))
+        print("contributors: %s gave no answer (%s). README.md is unchanged." % (urls, exc))
         return 0
-    if not logins:
-        # An empty list is not an answer either. The API answers with an empty array on
-        # a repository that it did not finish counting, and every name would go.
+    if not persons:
+        # An empty list is not an answer either. Both endpoints answer with an empty
+        # array while GitHub counts a repository, and every name would go.
         print("contributors: %s listed no person. README.md is unchanged, because an "
-              "empty list is not a measurement." % url)
+              "empty list is not a measurement." % urls)
         return 0
     with open(README, encoding="utf-8") as fh:
         text = fh.read()
-    new = rewrite(text, block(logins))
+    new = rewrite(text, block(persons))
     if new == text:
-        print("contributors: %d name(s), and the list is current." % len(logins))
+        print("contributors: %d name(s), and the list is current." % len(persons))
         return 0
     if check:
-        print("contributors: README.md is stale. Run `python3 scripts/contributors.py`.")
+        print("contributors: README.md is stale. It names %d person(s), and the API names %d. "
+              "Run `python3 scripts/contributors.py`." % (text.count("<sub><b>"), len(persons)))
         return 1
     with open(README, "w", encoding="utf-8") as fh:
         fh.write(new)
-    print("contributors: wrote %d name(s) to README.md." % len(logins))
+    print("contributors: wrote %d name(s) to README.md." % len(persons))
     return 0
 
 
