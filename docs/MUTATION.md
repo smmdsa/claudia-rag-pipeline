@@ -69,6 +69,10 @@ not whether one does. Baseline: 106 tests, 0 red. After the last restore: 106 te
 | M55 | `harness/rag.py` | an HTTP error and a body that is not JSON read as a dead stack | 2 — `AnsweredIsNotDownTest.test_an_http_error_is_an_answer`, `AnsweredIsNotDownTest.test_a_body_that_is_not_json_is_an_answer` |
 | M56 | `harness/rag.py` | the canary calls a slow index a dead stack, and tells the user to start it | 1 — `TimeoutIsNotStartedTest.test_the_canary_names_a_timeout_and_never_calls_the_stack_down` |
 | M57 | `infra/rag/agent/agent.py` | the reservation leaks when the thread does not start, so every later run is skipped | 1 — `AgentStartUpdateTest.test_a_thread_that_never_starts_frees_the_reservation` |
+| M58 | `scripts/contributors.py` | an API that gives no answer empties the list, and removes a name a person earned | 1 — `ContributorBlockTest.test_no_answer_leaves_every_name_in_place` |
+| M59 | `scripts/contributors.py` | a bot account is thanked as a person | 1 — `ContributorBlockTest.test_a_bot_never_appears` |
+| M60 | `scripts/contributors.py` | `--check` writes the file instead of reporting the stale list | 1 — `ContributorBlockTest.test_check_reports_a_stale_list_and_writes_nothing` |
+| M61 | `scripts/contributors.py` | the writer replaces the whole README, and not the block | 2 — `ContributorBlockTest.test_a_new_name_lands_in_the_block`, `ContributorBlockTest.test_check_is_quiet_when_the_list_is_current` |
 
 M38 and M39 ran on 2026-09-05, after `./infra/rag/up.sh` refused to run on a stack that
 was already up. Baseline 151 tests, 0 red. After the restore: 151 tests, 0 red.
