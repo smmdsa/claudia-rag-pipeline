@@ -23,3 +23,10 @@ owner: agent
 ## Not covered
 
 (the axis that this task does not touch. This section is mandatory.)
+
+## Notes
+
+(the record of the work. `python3 -m harness note {{ID}} --text "..."` writes one line
+here. The agent writes a note on every `start` and on every `done`. A note holds what
+the agent measured, tried, and discarded. A note can hold the user's verdict with
+`--by user`. The `## Verdict` section above stays the only place that closes a task.)

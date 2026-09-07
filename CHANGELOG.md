@@ -16,6 +16,39 @@ always meant: you talk to your agent, and the agent runs the harness.
 
 ### Added
 
+- **The board page opens a task in a modal, and every task carries the record of its
+  own work.** A card was a title and four chips. The user gave a verdict on a task with
+  `eye: GLANCE` or `eye: RUN`, and the page hid the evidence: the `Why`, the
+  `What to do`, and the `Done when` lived in the markdown file. A click on a card now
+  opens the whole task. Escape closes it, a click outside closes it, and the focus
+  returns to the card.
+
+  `python3 -m harness note <id> --text "..." [--by agent|user]` appends one line to the
+  `## Notes` section of the task file. The line carries the date and the author:
+  `- 2026-09-07 · by agent · "the words"`. `harness/board.py` `Task.notes()` reads that
+  section back, and a line that does not match the shape is not a note.
+
+  The agent writes a note on every `start` and on every `done`, and it does not wait to
+  be asked. The user decided this on 2026-09-07: a step that waits for a human is a
+  blocker, and the develop loop keeps the human in two places only, the QA test and the
+  ceremony. `start --note "..."` and `done --note "..."` add the agent's own words on a
+  second line. The move line records the move, which is measured. The words are the
+  agent's, and they stay on their own line.
+
+  A note can hold a verdict, and that verdict is the user's: the line then carries
+  `by user`. `harness done --verdict` stays the only writer of the `## Verdict`
+  section, so a note never closes a task.
+
+  The cache carries the body of each task and one row per note.
+  `harness/dashboard.py` gained a `notes` table and a `body` column. The page renders
+  the markdown itself, in about 30 lines, so the board page still ships one file with
+  no third-party package. The card shows the note count.
+
+  Measured in Chrome on 2026-09-07: the card opens the modal, Escape closes it and
+  returns the focus to the card, Enter on the focused card opens it again, and the
+  renderer prints the headings, the lists, the blockquotes, the fenced code, and the
+  inline code of a real task file.
+
 - **`python3 -m harness gpu` answers whether this host can run the index on a GPU.**
   The answer is `yes`, `no`, or `unknown`, and it names the reason. `harness/gpu.py`
   measures four things in order and stops at the first `no`: the platform,
@@ -120,6 +153,27 @@ always meant: you talk to your agent, and the agent runs the harness.
   command, so a script and a CI run pay nothing. It costs 0.25 s inside a session.
 
 ### Fixed
+
+- **The modal printed an STR out of order.** The markdown renderer of the board page
+  read `1.` and opened a `<ul>`, so step 5 printed as a bullet and the reader lost the
+  order. 21 task files in this repository hold a numbered list, and an STR is an
+  ordered procedure. A numbered list now opens an `<ol>`, and a list that starts at 3
+  prints `<ol start="3">`. A wrapped line landed between two `<li>`, which is not valid
+  HTML, and the browser lifts that text out of the list. A wrapped line now joins its
+  own item. Copilot found both on pull request 11.
+
+- **Every list shipped the whole task file.** `board.task_dict` carried the markdown
+  body, and `list`, `next`, `board`, and the session brief all call it. Measured on
+  this repository with 19 tasks: `list --json` printed 58,749 bytes, and 10,607 bytes
+  without the body. Nothing read it there. The board page reads the body from its own
+  cache, and `show --json` adds it on its own line. The key is gone from `task_dict`.
+
+- **A note written by a move kept its double quotes.** `add_note` turns a double quote
+  into a single quote, because the note line wraps the text in double quotes.
+  `move --note` built its line directly and skipped that rule, so a note by the agent
+  could carry the string `· by user ·` inside its own quotes. The rule now lives in
+  `board.note_text`, and both writers call it. That is design law 2: a rule lives in
+  exactly one place.
 
 - **The Git guard denied an ordinary commit message.** PR 5 closed every bypass of the
   history guard, and its `ValueError` branch denies a command that it cannot read. The

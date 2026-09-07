@@ -31,7 +31,7 @@
     ".claude/skills/board/SKILL.md": {
       "kind": "owned",
       "template": ".claude/skills/board/SKILL.md",
-      "sha256": "4a9b26ea5ced3581a511d4b407d4836af0f6b9b3cc50ee26ca6017a7a3852cb4"
+      "sha256": "4b4013ceabefbb431d84903903300811b117a09412ef35814abde8d550905ffa"
     },
     ".claude/skills/ceremony/SKILL.md": {
       "kind": "owned",
@@ -82,7 +82,7 @@
     "CLAUDE.md": {
       "kind": "owned",
       "template": "CLAUDE.md",
-      "sha256": "49a575c15a9585f380c2d78cd998b209bd9308f6348e643790f9ca2f4fe020db"
+      "sha256": "60ec8b28720580da7f41a5fb2cc6fdebcb84660a93ba468958674ce8ce41c9a7"
     },
     "docs/ACTIVITY.md": {
       "kind": "seeded",
@@ -158,7 +158,7 @@
     "work/README.md": {
       "kind": "owned",
       "template": "work/README.md",
-      "sha256": "2b78a5aa29900e633cbf3279d4b7ff185fd3aeeaa931ca51be7c2d9db7efcd9f"
+      "sha256": "f3b895558ab5dec006f5db9bf4aea9252196ba4aecea6948eb499ffa4b045a4c"
     },
     "work/ROADMAP.md": {
       "kind": "seeded",
@@ -181,7 +181,7 @@
     "work/templates/task.md": {
       "kind": "owned",
       "template": "work/templates/task.md",
-      "sha256": "622d87b73fe712aaa2c84f6ce822e1d68eeb97209fc29758fe27201f62c7125c"
+      "sha256": "7b4329c3b585c8d48451b757842070d030ff3bdb9dd1ac5b611fe0555bf2844f"
     }
   }
 }

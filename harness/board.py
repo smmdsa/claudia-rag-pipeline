@@ -21,6 +21,8 @@ WORK = ("XS", "S", "M", "L", "XL")
 EYE = ("NONE", "GLANCE", "RUN")
 OWNER = ("agent", "user")
 TASK_ID = re.compile(r"^TASK-\d{4}$")
+# One note per line: `- 2026-09-07 · by agent · "the words"`. `add_note` is the writer.
+NOTE_LINE = re.compile(r'^- (\d{4}-\d{2}-\d{2}) \u00b7 by (\S+) \u00b7 "(.*)"\s*$', re.M)
 DEFAULT_WIP_CAP = 3
 
 
@@ -50,6 +52,22 @@ class Task:
 
     def has_verdict(self):
         return re.search(r"^## Verdict\s*$", self.body, re.M) is not None
+
+    def notes(self):
+        """The `## Notes` lines, in file order. The file order is the date order.
+
+        `add_note` appends, so the last line is the newest. A line that does not match
+        NOTE_LINE is not a note. The reader skips it and never guesses a date.
+        """
+        found = re.search(r"^## Notes\s*$", self.body, re.M)
+        if found is None:
+            return []
+        after = re.search(r"^## ", self.body[found.end():], re.M)
+        cut = found.end() + after.start() if after else len(self.body)
+        out = []
+        for m in NOTE_LINE.finditer(self.body[found.end():cut]):
+            out.append({"date": m.group(1), "by": m.group(2), "text": m.group(3)})
+        return out
 
     def needs_eye(self):
         return self.eye != "NONE"
@@ -295,7 +313,7 @@ def task_dict(t, root):
         "priority_date": t.priority_date or None, "blocked_by": t.blocked_by,
         "needs_decision": t.decision or None, "refs": t.refs, "state": t.state,
         "sprint": t.sprint or None, "epic": t.epic or None, "path": rel(root, t.path),
-        "has_verdict": t.has_verdict(),
+        "has_verdict": t.has_verdict(), "notes": t.notes(),
     }
 
 
@@ -548,7 +566,47 @@ def _append_section(path, header, line):
     write_text(path, head + "\n" + tail if tail else head)
 
 
-def move(root, tree, task_id, to, verdict=None, by=None):
+NOTE_BY = ("agent", "user")
+
+
+def note_text(text):
+    """The words of a note, ready to write. Every writer of a note calls this one.
+
+    The text collapses to one line, so the parser stays simple. A double quote becomes
+    a single quote, because the line wraps the text in double quotes. `move --note`
+    once skipped this rule and wrote a line that a reader could not trust.
+    """
+    return " ".join(str(text or "").split()).replace('"', "'")
+
+
+def note_line(text, by="agent", date=None):
+    """One note line, from the words that `note_text` cleans."""
+    return '- %s \u00b7 by %s \u00b7 "%s"' % ((date or today()).isoformat(), by, note_text(text))
+
+
+def add_note(root, tree, task_id, text, by="agent"):
+    """Append one note to the `## Notes` section of a task. Return a report dict.
+
+    The agent writes a note on every `start` and every `done`, and it does not wait to
+    be asked. A note records what the agent measured, tried, and discarded. A note can
+    hold a verdict, and that verdict is the user's: the line then carries `by user`.
+    An agent note never grades the work. `harness done --verdict` stays the only
+    writer of the `## Verdict` section.
+    """
+    t = find(tree, task_id)
+    if t is None:
+        raise HarnessError("no task with id %s. Run `python3 -m harness list` to see the ids." % task_id)
+    if by not in NOTE_BY:
+        raise HarnessError("--by is %r. A note is written by agent or by user." % by)
+    one = note_text(text)
+    if not one:
+        raise HarnessError("the note is empty. Pass the words: `--text \"<words>\"`.")
+    _append_section(t.path, "## Notes", note_line(one, by=by))
+    return {"id": t.id, "by": by, "date": today().isoformat(), "text": one,
+            "path": rel(root, t.path), "notes": len(t.notes()) + 1}
+
+
+def move(root, tree, task_id, to, verdict=None, by=None, note=None):
     """Move one task between state folders. Return a report dict."""
     t = find(tree, task_id)
     if t is None:
@@ -576,12 +634,20 @@ def move(root, tree, task_id, to, verdict=None, by=None):
         _, ep = find_epic(tree, t.epic, sprint=t.sprint)
         if ep and os.path.exists(ep.sheet):
             _append_section(ep.sheet, "## Verdicts", "- %s · %s · \"%s\"" % (today().isoformat(), t.id, verdict))
+    # The agent writes a note on every move. The move is measured, so the line is a
+    # fact and never an opinion. The words of `--note` ride on their own line.
+    _append_section(t.path, "## Notes", note_line("%s -> %s" % (t.state, to)))
+    written = 1
+    if note:
+        _append_section(t.path, "## Notes", note_line(note))
+        written += 1
     dst = os.path.join(os.path.dirname(os.path.dirname(t.path)), to, os.path.basename(t.path))
     how = _git_mv(root, t.path, dst)
-    note = ""
+    warn = ""
     if to == "in-progress" and t.needs_eye():
-        note = "this task needs an eye (%s). It cannot close without a human verdict." % t.eye
-    return {"id": t.id, "from": t.state, "to": to, "how": how, "path": rel(root, dst), "note": note}
+        warn = "this task needs an eye (%s). It cannot close without a human verdict." % t.eye
+    return {"id": t.id, "from": t.state, "to": to, "how": how, "path": rel(root, dst),
+            "note": warn, "notes": written}
 
 
 PRIORITY_FIELDS = ("priority", "priority-by", "priority-date", "priority-why")

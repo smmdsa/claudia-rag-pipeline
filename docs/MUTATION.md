@@ -98,6 +98,19 @@ not whether one does. Baseline: 106 tests, 0 red. After the last restore: 106 te
 | M84 | `harness/gpu.py` | the note ignores the image that the stack runs | 1 — `NoteTest.test_the_note_names_the_command_when_the_stack_runs_the_cpu_image` |
 | M85 | `harness/stack.py` | the `ps` row drops the image tag of the container | 1 — `NoteTest.test_the_note_names_the_command_when_the_stack_runs_the_cpu_image` |
 | M86 | `harness/cli.py` | `init` never runs the GPU check | 1 — `GpuCliTest.test_init_prints_the_line_and_no_gpu_skips_it` |
+| M87 | `harness/board.py` | `add_note` writes into the `## Verdict` section | 6 — `NotesTest.test_a_note_lands_under_the_notes_header_with_the_date_and_the_author`, `NotesTest.test_two_notes_keep_their_order`, `NotesTest.test_a_note_can_carry_the_users_verdict_words`, `NotesTest.test_a_quote_in_the_text_never_breaks_the_line`, `NotesTest.test_a_line_that_is_not_a_note_is_skipped`, `NotesTest.test_the_cli_writes_a_note_and_check_stays_green` |
+| M88 | `harness/board.py` | `move` writes no note, so a start and a done leave no record | 6 — `NotesTest.test_start_writes_the_move_note_without_a_request`, `NotesTest.test_the_agent_words_ride_on_their_own_line`, `NotesTest.test_every_move_writes_its_own_note`, `NotesTest.test_a_note_never_lands_inside_the_verdict_section`, `NotesTest.test_the_cli_start_reports_the_note_it_wrote`, `ModalTest.test_the_cache_carries_the_notes_in_order` |
+| M89 | `harness/board.py` | `notes()` reads every line of the section, so a paragraph becomes a note with no date | 13 — every `NotesTest` that reads a note, plus `ModalTest.test_the_cache_carries_the_notes_in_order` and `ModalTest.test_a_task_with_no_note_carries_no_row` |
+| M90 | `harness/board.py` | `add_note` takes any author, so a third name enters the record | 1 — `NotesTest.test_a_note_by_anyone_else_is_refused` |
+| M91 | `harness/dashboard.py` | the cache stores no body, so the modal shows an empty task | 2 — `ModalTest.test_the_cache_carries_the_body_of_every_task`, `ModalTest.test_the_page_carries_the_note_text_and_the_body` |
+| M92 | `harness/dashboard.py` | `read_db` returns the notes newest first, so the record reads backwards | 1 — `ModalTest.test_the_cache_carries_the_notes_in_order` |
+| M93 | `harness/dashboard.html` | the card carries no `data-id`, so a click opens nothing | 1 — `ModalTest.test_the_page_holds_the_modal_and_the_clickable_card` |
+| M94 | `harness/board.py` | `notes()` reads the whole body and not the `## Notes` section | 11 — every `NotesTest` that reads a note, plus `ModalTest.test_the_cache_carries_the_notes_in_order` |
+| M95 | `harness/board.py` | `add_note` accepts an empty text, so a blank line enters the record | 1 — `NotesTest.test_an_empty_note_is_refused` |
+| M96 | `harness/board.py` | `task_dict` carries the body, so every list ships the file | 2 — `TaskDictTest.test_a_task_row_carries_no_body`, `TaskDictTest.test_list_stays_small_and_show_still_prints_the_file` |
+| M97 | `harness/dashboard.html` | a numbered list opens a `<ul>`, so an STR loses its order | 2 — `RendererTest.test_a_numbered_list_keeps_its_order`, `RendererTest.test_a_list_that_starts_at_three_says_three` |
+| M98 | `harness/dashboard.html` | a wrapped line lands between two `<li>`, which is not valid HTML | 3 — `RendererTest.test_a_wrapped_step_stays_inside_its_own_item`, `RendererTest.test_a_wrapped_bullet_stays_inside_its_own_item`, `RendererTest.test_the_page_carries_the_ordered_list_branch` |
+| M99 | `harness/board.py` | `note_text` keeps the double quotes, so `move --note` writes a line that a reader cannot trust | 2 — `NotesTest.test_a_quote_in_a_move_note_reads_the_same_as_a_quote_in_add_note`, `NotesTest.test_a_quote_in_the_text_never_breaks_the_line` |
 
 M38 and M39 ran on 2026-09-05, after `./infra/rag/up.sh` refused to run on a stack that
 was already up. Baseline 151 tests, 0 red. After the restore: 151 tests, 0 red.
@@ -164,6 +177,15 @@ law 3 in one line each: a stopped daemon that answers `no`, a host check that an
 a cache that an unmeasured run overwrites. M85 lives in `harness/stack.py`: the note
 that names the CPU image reads the `Image` field of `docker compose ps`, and the
 mutation proves that the field is read and not guessed.
+
+M96 to M99 ran on 2026-09-07, after the Copilot review of pull request 11 named three
+defects. Baseline 290 tests, 0 red. After the last restore: 290 tests, 0 red. M99
+records a design law 2 error: the rule that a note holds no double quote lived in
+`add_note`, and `move` walked around it. The rule now lives in `note_text`, and both
+writers call it. M97 and M98 measure the renderer in node, because the page ships one
+file and loads no package. On a host with no node the behaviour tests skip, and
+`RendererTest.test_the_page_carries_the_ordered_list_branch` guards the four lines
+that the fix added.
 
 ## The gap that the method found
 

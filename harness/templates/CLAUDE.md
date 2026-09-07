@@ -57,6 +57,7 @@ Use the left column. Never use the right column.
 | help | onboarding, tour, guide, walkthrough |
 | note | comment, annotation, remark, log entry |
 | modal | dialog, popup, lightbox, overlay |
+| STR | repro, repro steps, test plan, how to test |
 
 Add a row when you choose a new term. Do not remove rows.
 
@@ -99,6 +100,7 @@ python3 -m harness init | doctor | upgrade | uninstall | adopt <f> | restore <f>
 python3 -m harness profile show|set k=v|ask        python3 -m harness skills generate
 python3 -m harness board | next | list | show <id> | check | clock
 python3 -m harness start <id> | done <id> [--verdict "..." --by user] | back <id>
+python3 -m harness note <id> --text "..." [--by agent|user]   the record of the work
 python3 -m harness new task|epic|sprint --title ... [--id sprint-NNN]
 python3 -m harness assign <id> --epic EP-NN | <epic folder name>
 python3 -m harness priority <id> --by user --why "..." | --clear
@@ -120,6 +122,7 @@ The agent can:
 - read every file, run every read command, and run `check` at any time;
 - create tasks with `new task`, move them with `start`, `back`, and `done` for
   `eye: NONE`;
+- write a note on the task it works, on every `start` and on every `done`;
 - write the session document, the journal line, and the front board rows of its own
   work;
 - append an observation to `.harness/escalations.md`.
@@ -135,6 +138,31 @@ The agent never:
 - moves a file under `work/` by hand;
 - edits `.harness/manifest.json` or `.harness/journal.jsonl` by hand;
 - commits or pushes without the user's request.
+
+### Notes
+
+The agent writes a note on every `start` and on every `done`. It does not wait for a
+request. A note records what the agent measured, what it tried, and what it discarded.
+
+A note can hold a verdict. That verdict is the user's, and the line carries
+`--by user`. An agent note never grades the work.
+
+### When the agent stops for the human
+
+The human is not a review step inside the develop loop. The agent stops for two
+reasons only:
+
+1. **The product direction is not clear.** The agent asks the user what the product
+   must do. The agent never picks a direction from its own opinion.
+2. **The product or the feature needs a human eye.** The agent asks the user to run
+   the feature and to give a verdict.
+
+Every request for an eye carries a clear STR. The STR names the command, the page, or
+the click, one step per line. The STR names the result that the user must see. A
+request for an eye with no STR is a delay, not a request.
+
+The agent stops for nothing else. If the agent can measure the answer, the agent
+measures it.
 
 When a question sits above this boundary, the agent runs `python3 -m harness
 escalate` and stops.

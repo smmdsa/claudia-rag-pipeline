@@ -34,7 +34,13 @@ CREATE TABLE tasks (id TEXT PRIMARY KEY, title TEXT, work TEXT, eye TEXT, owner 
                     due TEXT, priority INTEGER, state TEXT, sprint TEXT, epic TEXT,
                     path TEXT, has_verdict INTEGER, needs_decision TEXT,
                     -- age in days since the task entered its state folder, from git. NULL = not measured.
-                    state_age_days REAL);
+                    state_age_days REAL,
+                    -- the markdown body of the task file, below the frontmatter. The modal reads it.
+                    body TEXT);
+-- One row per `## Notes` line of a task. `ord` keeps the file order, which is the date order.
+-- `author` is `agent` or `user`. The column is not named `by`: BY is a SQL keyword.
+CREATE TABLE notes (task TEXT, ord INTEGER, date TEXT, author TEXT, text TEXT,
+                    PRIMARY KEY (task, ord));
 """
 
 
@@ -130,10 +136,12 @@ def build_db(root, path=None):
     for t in all_tasks(tree):
         entered = state._entered_at(root, t.path)
         age = round((now().timestamp() - entered) / 86400.0, 1) if entered else None
-        con.execute("INSERT INTO tasks VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        con.execute("INSERT INTO tasks VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (t.id, t.title, t.work, t.eye, t.owner, t.due or None, t.priority, t.state,
                      t.sprint or None, t.epic or None, os.path.relpath(t.path, root), int(t.has_verdict()),
-                     t.decision or None, age))
+                     t.decision or None, age, t.body))
+        for i, n in enumerate(t.notes()):
+            con.execute("INSERT INTO notes VALUES (?,?,?,?,?)", (t.id, i, n["date"], n["by"], n["text"]))
     con.commit()
     con.close()
     os.replace(tmp, path)
@@ -149,8 +157,10 @@ def read_db(path):
     sprints = [dict(r) for r in con.execute("SELECT * FROM sprints ORDER BY ord")]
     epics = [dict(r) for r in con.execute("SELECT * FROM epics ORDER BY sprint, ord")]
     tasks = [dict(r) for r in con.execute("SELECT * FROM tasks ORDER BY id")]
+    notes = [dict(r) for r in con.execute("SELECT * FROM notes ORDER BY task, ord")]
     con.close()
-    return {"meta": meta, "sprints": sprints, "epics": epics, "tasks": tasks, "today": today().isoformat()}
+    return {"meta": meta, "sprints": sprints, "epics": epics, "tasks": tasks, "notes": notes,
+            "today": today().isoformat()}
 
 
 def render_html(data):
