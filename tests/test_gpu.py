@@ -15,7 +15,8 @@ The two rules that matter:
 One test runs the real command in a subprocess against a fake `nvidia-smi` and a fake
 `docker` on the PATH. It measures the text, the exit code, and the cache file.
 
-Mutation proof (docs/MUTATION.md): M77 to M84.
+Mutation proof (docs/MUTATION.md): M77 to M86. M85 lives in `harness/stack.py`
+and M86 lives in `harness/cli.py`. The tests of this module kill both.
 """
 import json
 import os

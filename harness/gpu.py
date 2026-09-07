@@ -218,7 +218,7 @@ def text(report):
 
 
 def init_line(report):
-    """The one line that `init` prints. "" when the host answers no on a plain reason."""
+    """The one line that `init` prints. Every answer returns a line."""
     if report["answer"] == "yes":
         return "GPU: yes (%s). Run `python3 -m harness stack up --gpu` to use it." % (report["card"] or "this host")
     if report["answer"] == "unknown":

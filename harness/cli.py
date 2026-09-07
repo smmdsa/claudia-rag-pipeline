@@ -38,7 +38,7 @@ def build_parser():
     sp.add_argument("topic", nargs="?", metavar="topic", help="one of: %s" % ", ".join(help_.TOPICS))
     sp = add("init", "create every missing harness file. Idempotent.")
     sp.add_argument("--rebuild-manifest", action="store_true")
-    sp.add_argument("--no-gpu", action="store_true", help="skip the GPU check. It starts one container.")
+    sp.add_argument("--no-gpu", action="store_true", help="skip the GPU check. On a ready host the check starts one container.")
     add("doctor", "report the integrity of the install: exit 0 sound, 1 damaged, 2 not initialised")
     add("upgrade", "rewrite unchanged owned files from the new templates and record the version")
     add("uninstall", "remove the owned files that still match their checksum").add_argument("--yes", action="store_true", help="remove. Without it, print the plan.")
