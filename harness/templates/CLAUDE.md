@@ -107,6 +107,7 @@ python3 -m harness state | target show|set <stock> <n> --by user --why "..." | e
 python3 -m harness session open|draft|close --slug S   python3 -m harness journal tail|observe
 python3 -m harness ports | env | rag health|config|update|link
 python3 -m harness stack status|start|stop|up [--stack rag|board] [--gpu]
+python3 -m harness gpu [--no-run]                  can this host run the index on a GPU?
 python3 -m harness dashboard build-db|serve|static -o board.html
 ```
 

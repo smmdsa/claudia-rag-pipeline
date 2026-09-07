@@ -1,5 +1,6 @@
 # harness: machine-local and cache files
 .harness/env.local
+.harness/gpu.json
 .harness/board.sqlite
 .harness/board.sqlite.tmp
 __pycache__/

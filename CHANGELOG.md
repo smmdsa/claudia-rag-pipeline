@@ -16,6 +16,39 @@ always meant: you talk to your agent, and the agent runs the harness.
 
 ### Added
 
+- **`python3 -m harness gpu` answers whether this host can run the index on a GPU.**
+  The answer is `yes`, `no`, or `unknown`, and it names the reason. `harness/gpu.py`
+  measures four things in order and stops at the first `no`: the platform,
+  `nvidia-smi -L`, the runtimes that `docker info` registers, and one
+  `docker run --gpus all <image> nvidia-smi -L`.
+
+  The GPU path shipped in 0.1.0. `infra/rag/docker-compose.gpu.yml` holds the build
+  target and the device reservation, `harness/stack.py` merges the file for
+  `stack up --gpu`, and nothing measured the host. So an adopter with a card ran the
+  CPU image and never learned it. The cost is measured: `qmd embed` took 60749 ms on
+  2026-09-05, and `qmd` prints "no GPU acceleration, running on CPU (slow)" on every
+  run.
+
+  Only the container step returns `yes`. `nvidia-smi` on the host proves nothing about
+  a container (design law 3). Measured on 2026-09-07 on an RTX 3070 Ti under WSL2: the
+  host named the card, docker registered the `nvidia` runtime, and the container
+  reached the card in 3.3 s.
+
+  A step that does not answer returns `unknown`, never `no` (design law 7). A stopped
+  daemon is not a measurement of the hardware. An `unknown` run never overwrites the
+  cached answer of a run that measured something, so a session with docker down keeps
+  the proof of the last deep run and names its date.
+
+  `init` runs the whole check once and writes `.harness/gpu.json`, which git ignores.
+  `init --no-gpu` skips it. `doctor` reads the cache and names
+  `stack up --gpu` when the answer is `yes` while the `rag` stack still runs the CPU
+  image. The check never runs inside `scaffold.init`, so the session-start hook shells
+  out to no container.
+
+  On macOS the answer is `no`, and the text names itself as a claim: Docker Desktop
+  runs the containers in a Linux virtual machine, and that machine does not reach the
+  Apple GPU. No Mac measured this yet.
+
 - **`README.md` thanks the contributors, with a picture for each one.**
   `scripts/contributors.py` reads the GitHub API and writes the names and the pictures
   between two markers in `README.md`. A person runs it once a week and reads the diff.
