@@ -9,7 +9,7 @@ import json
 import os
 import sys
 
-from harness import VERSION, board, ceremonies, dashboard, env, hooks, journal, manifest, mcp, ports, profile, rag, scaffold, session, stack, state
+from harness import VERSION, board, ceremonies, dashboard, env, gpu, hooks, journal, manifest, mcp, ports, profile, rag, scaffold, session, stack, state
 from harness import help as help_
 from harness.board import scan
 from harness.clock import clock_report, clock_text
@@ -36,7 +36,9 @@ def build_parser():
 
     sp = add("help", "the adopter's map: what init created, what you own, and where the rules live")
     sp.add_argument("topic", nargs="?", metavar="topic", help="one of: %s" % ", ".join(help_.TOPICS))
-    add("init", "create every missing harness file. Idempotent.").add_argument("--rebuild-manifest", action="store_true")
+    sp = add("init", "create every missing harness file. Idempotent.")
+    sp.add_argument("--rebuild-manifest", action="store_true")
+    sp.add_argument("--no-gpu", action="store_true", help="skip the GPU check. It starts one container.")
     add("doctor", "report the integrity of the install: exit 0 sound, 1 damaged, 2 not initialised")
     add("upgrade", "rewrite unchanged owned files from the new templates and record the version")
     add("uninstall", "remove the owned files that still match their checksum").add_argument("--yes", action="store_true", help="remove. Without it, print the plan.")
@@ -50,6 +52,10 @@ def build_parser():
     sp.add_argument("pairs", nargs="*", help="key=value for `set`")
     sp = add("skills", "generate the project skills from the profile")
     sp.add_argument("action", choices=["generate"])
+
+    sp = add("gpu", "can this host run the index on a GPU? Answers yes, no, or unknown.")
+    sp.add_argument("--no-run", action="store_true",
+                    help="skip the container step. The best answer is then unknown.")
 
     sp = add("stack", "the Docker stacks: report them, start them, stop them")
     sp.add_argument("action", choices=["status", "start", "stop", "up", "ports"], nargs="?", default="status")
@@ -157,10 +163,20 @@ def run(args):
         return 0
     if c == "init":
         r = scaffold.init(root, rebuild_manifest=args.rebuild_manifest)
+        # The GPU check starts a container, so it lives here and not in `scaffold.init`.
+        # A caller that imports the scaffold gets files and no docker call.
+        r["gpu"] = None if args.no_gpu else gpu.measure(root, deep=True)
         emit(r, js, scaffold.init_text)
+        if r["gpu"] and not js:
+            print(gpu.init_line(r["gpu"]))
         return 0
     if c == "doctor":
         r = manifest.doctor(root)
+        # `manifest.doctor` reads files only. The session-start hook calls it, and a
+        # hook that shells out to docker on every session costs seconds.
+        note = gpu.note(root)
+        if note:
+            r["notes"].append(note)
         emit(r, js, manifest.doctor_text)
         return r["exit"]
     if c == "upgrade":
@@ -206,6 +222,10 @@ def run(args):
         emit({"written": r}, js, lambda r: "written: " + ", ".join(r["written"]))
         return 0
 
+    if c == "gpu":
+        # Exit 0 on every answer. `no` is a measurement of this host, not an error.
+        emit(gpu.measure(root, deep=not args.no_run), js, gpu.text)
+        return 0
     if c == "stack":
         if args.action == "ports":
             r = stack.port_report(root, args.stack)

@@ -99,6 +99,9 @@ def status(root, name="rag"):
                 published.append(port)
         report["services"].append({"service": row.get("Service"), "name": row.get("Name"),
                                    "state": row.get("State"), "health": row.get("Health") or "",
+                                   # The tag that the container runs. `harness gpu` reads it to tell a
+                                   # host that answers yes while the stack still runs the CPU image.
+                                   "image": row.get("Image") or "",
                                    "published": sorted(set(published))})
     present = {s["service"] for s in report["services"]}
     report["running"] = sorted(s["service"] for s in report["services"] if s["state"] == "running")

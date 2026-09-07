@@ -160,6 +160,33 @@ python3 -m harness stack status --stack board
 python3 -m harness session open --no-stack   # never touch docker
 ```
 
+### Can this machine run the index on a GPU?
+
+```bash
+python3 -m harness gpu           # yes, no, or unknown, and the reason
+python3 -m harness gpu --no-run  # the host steps only. It starts no container.
+```
+
+The CPU image is slow. `qmd embed` took 60749 ms on one measured run, and `qmd`
+prints "no GPU acceleration, running on CPU (slow)" every time. The GPU path shipped
+from the first release and nothing measured the host, so an adopter ran the CPU image
+and never learned that the machine holds a card.
+
+`gpu` measures four things in order and stops at the first `no`: the platform,
+`nvidia-smi -L`, the runtimes that `docker info` registers, and one
+`docker run --gpus all <image> nvidia-smi -L`. Only the last step returns `yes`.
+`nvidia-smi` on the host proves nothing about a container.
+
+A step that does not answer returns `unknown`, never `no`. A stopped daemon is not a
+measurement of your hardware, and an `unknown` run never overwrites the cached answer
+of a run that measured something. `init` runs the whole check once and caches the
+answer in `.harness/gpu.json`. `doctor` reads that cache, and it names
+`stack up --gpu` when the answer is `yes` while the stack still runs the CPU image.
+
+On macOS the answer is `no`: Docker Desktop runs the containers in a Linux virtual
+machine, and that machine does not reach the Apple GPU. **No Mac measured this yet.**
+The text says so.
+
 `start` never builds an image. A build needs the network and minutes, and a session
 brief must stay fast. If no container exists, the brief names `stack up` and stops.
 If docker is not on the PATH, or the daemon does not answer, the brief says so in one

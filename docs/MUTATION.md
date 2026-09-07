@@ -88,6 +88,16 @@ not whether one does. Baseline: 106 tests, 0 red. After the last restore: 106 te
 | M74 | `scripts/contributors.py` | an answer that is not a list is iterated as rows, and the script dies | 2 — `ContributorBlockTest.test_an_answer_that_is_not_a_list_leaves_every_name_in_place`, `ContributorBlockTest.test_an_answer_that_is_not_a_list_names_the_message` |
 | M75 | `scripts/contributors.py` | the `alt` repeats the login, so a screen reader says the name twice | 2 — `ContributorBlockTest.test_a_picture_is_decorative_because_the_link_holds_the_name`, `ContributorBlockTest.test_check_is_quiet_when_the_list_is_current` |
 | M76 | `scripts/contributors.py` | the size joins a url that already carries a query with a second `?` | 2 — `ContributorBlockTest.test_the_size_joins_a_url_that_already_carries_a_query`, `ContributorBlockTest.test_check_is_quiet_when_the_list_is_current` |
+| M77 | `harness/gpu.py` | a stopped daemon reads as `no` instead of `unknown` | 2 — `ProbeTest.test_a_stopped_daemon_is_unknown_and_never_no`, `CacheTest.test_an_unknown_run_never_overwrites_a_measured_cache` |
+| M78 | `harness/gpu.py` | the host steps alone answer `yes`, and no container proves the path | 3 — `ProbeTest.test_a_ready_host_alone_is_unknown_and_starts_no_container`, `NoteTest.test_a_ready_host_with_no_cache_asks_for_the_gpu_command`, `GpuCliTest.test_no_run_skips_the_container_and_answers_unknown` |
+| M79 | `harness/gpu.py` | the card of a `yes` comes from the host and not from the container | 1 — `ProbeTest.test_the_card_of_a_yes_comes_from_the_container_and_not_the_host` |
+| M80 | `harness/gpu.py` | an `unknown` run overwrites the cached measurement | 1 — `CacheTest.test_an_unknown_run_never_overwrites_a_measured_cache` |
+| M81 | `harness/gpu.py` | the container step runs on an image that does not exist | 2 — `ProbeTest.test_a_missing_image_is_unknown_and_names_the_command`, `ProbeTest.test_a_missing_image_never_starts_a_container` |
+| M82 | `harness/gpu.py` | `docker run` drops `--gpus all`, so the container measures the host | 1 — `ProbeTest.test_only_a_container_returns_yes_and_it_carries_gpus_all` |
+| M83 | `harness/gpu.py` | macOS answers `unknown`, so the claim reads as a measurement | 1 — `ProbeTest.test_macos_is_no_and_names_itself_as_a_claim` |
+| M84 | `harness/gpu.py` | the note ignores the image that the stack runs | 1 — `NoteTest.test_the_note_names_the_command_when_the_stack_runs_the_cpu_image` |
+| M85 | `harness/stack.py` | the `ps` row drops the image tag of the container | 1 — `NoteTest.test_the_note_names_the_command_when_the_stack_runs_the_cpu_image` |
+| M86 | `harness/cli.py` | `init` never runs the GPU check | 1 — `GpuCliTest.test_init_prints_the_line_and_no_gpu_skips_it` |
 
 M38 and M39 ran on 2026-09-05, after `./infra/rag/up.sh` refused to run on a stack that
 was already up. Baseline 151 tests, 0 red. After the restore: 151 tests, 0 red.
@@ -146,6 +156,14 @@ words. Law 9 names this trap: a green test can guard a bug.
 
 M16 and M17 ran on 2026-09-04 after the user chose enforcement for `priority`
 (proposal P17). Baseline 110 tests, 0 red. After the restore: 110 tests, 0 red.
+
+M77 to M86 ran on 2026-09-07 for `harness/gpu.py` (TASK-0015). Baseline 260 tests, 0
+red. After the last restore: 260 tests, 0 red. Six of the ten break design law 7 or
+law 3 in one line each: a stopped daemon that answers `no`, a host check that answers
+`yes` with no container, a card name taken from the host instead of the container, and
+a cache that an unmeasured run overwrites. M85 lives in `harness/stack.py`: the note
+that names the CPU image reads the `Image` field of `docker compose ps`, and the
+mutation proves that the field is read and not guessed.
 
 ## The gap that the method found
 
