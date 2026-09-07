@@ -5,7 +5,9 @@ M43 (the cache is never stale) 2 red.
 """
 import json
 import os
+import shutil
 import sqlite3
+import subprocess
 import threading
 import unittest
 import urllib.request
@@ -14,7 +16,7 @@ from tests.helpers import make_repo, rm, seed_board
 
 from harness import board, dashboard
 from harness.ports import is_free
-from harness.util import read_text
+from harness.util import read_text, write_text
 
 
 class DashboardTest(unittest.TestCase):
@@ -117,6 +119,100 @@ class DashboardTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def _md_source(page):
+    """The three lines of the page that render markdown: `esc`, `inline`, and `md`.
+
+    The page ships one file and loads no package, so the renderer has no module to
+    import. The test cuts it out of the page by its anchors and runs it in node.
+    """
+    lines = page.split("\n")
+    out = []
+    for i, line in enumerate(lines):
+        if line.startswith("  const esc = ") or line.startswith("  const inline = "):
+            out.append(line)
+        if line.startswith("  const md = src => {"):
+            end = lines.index("  };", i)
+            out.extend(lines[i:end + 1])
+    return "\n".join(out)
+
+
+RUNNER = """
+let src = '';
+process.stdin.on('data', d => src += d);
+process.stdin.on('end', () => process.stdout.write(md(src)));
+"""
+
+
+class RendererTest(unittest.TestCase):
+    """The modal renders the task file. An STR is an ordered procedure, so order counts.
+
+    A `<ul>` prints step 5 as a bullet, and the reader loses the order. A wrapped step
+    once landed between two `<li>`, which is not valid HTML, and the browser lifts that
+    text out of the list.
+
+    Mutation proof (docs/MUTATION.md): M97 (a numbered list opens a `<ul>`) 2 red,
+    M98 (a wrapped line lands between two `<li>`) 3 red.
+    """
+
+    def setUp(self):
+        os.environ["HARNESS_TODAY"] = "2026-09-05"
+        self.root = make_repo()
+        seed_board(self.root)
+        out = os.path.join(self.root, "board.html")
+        dashboard.static(self.root, out)
+        self.page = read_text(out)
+
+    def tearDown(self):
+        os.environ.pop("HARNESS_TODAY", None)
+        rm(self.root)
+
+    def render(self, markdown):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node is not on the PATH, so the renderer runs nowhere")
+        js = os.path.join(self.root, "md.mjs")
+        write_text(js, _md_source(self.page) + RUNNER)
+        p = subprocess.run([node, js], input=markdown, capture_output=True, text=True, timeout=60)
+        self.assertEqual(p.returncode, 0, p.stderr)
+        return p.stdout
+
+    def test_a_numbered_list_keeps_its_order(self):
+        html = self.render("1. run the command\n2. read the page\n3. press Escape")
+        self.assertIn("<ol>", html)
+        self.assertIn("</ol>", html)
+        self.assertNotIn("<ul>", html)
+        self.assertIn("<li>read the page</li>", html)
+
+    def test_a_bullet_list_stays_a_bullet_list(self):
+        html = self.render("- one\n- two")
+        self.assertIn("<ul>", html)
+        self.assertNotIn("<ol", html)
+
+    def test_a_list_that_starts_at_three_says_three(self):
+        html = self.render("3. third\n4. fourth")
+        self.assertIn('<ol start="3">', html)
+
+    def test_a_wrapped_step_stays_inside_its_own_item(self):
+        html = self.render("1. put the section near the top of the file, between\n"
+                           "   the badge and the first header\n2. write the script")
+        self.assertIn("<li>put the section near the top of the file, between "
+                      "the badge and the first header</li>", html)
+        # No bare text between two items. That is the invalid HTML the browser lifts out.
+        for chunk in html.split("</li>")[1:]:
+            self.assertEqual(chunk.split("<", 1)[0].strip(), "")
+
+    def test_a_wrapped_bullet_stays_inside_its_own_item(self):
+        html = self.render("- one line\n  and its wrap\n- two")
+        self.assertIn("<li>one line and its wrap</li>", html)
+
+    def test_the_page_carries_the_ordered_list_branch(self):
+        """The guard that runs on every host, with node or without it."""
+        self.assertIn("<ol", self.page)
+        self.assertIn("'</' + mode + '>'", self.page)          # close() ends ul and ol
+        self.assertIn("endsWith('</li>')", self.page)          # a wrap joins its item
+        self.assertIn(".sheet ul, .sheet ol", self.page)       # both lists carry the style
 
 
 class ModalTest(unittest.TestCase):

@@ -44,7 +44,7 @@
                border:1px solid var(--line); border-radius:6px; }
   .sheet code { padding:0 .2rem; font-family:ui-monospace, monospace; font-size:.86em; background:var(--bg); border-radius:3px; }
   .sheet blockquote { margin:.5rem 0; padding:.1rem .8rem; border-left:3px solid var(--line); color:var(--ink2); }
-  .sheet ul { margin:.3rem 0; padding-left:1.2rem; }
+  .sheet ul, .sheet ol { margin:.3rem 0; padding-left:1.2rem; }
   .notes li { margin:.35rem 0; }
   .notes .when { font-family:ui-monospace, monospace; font-size:.78rem; color:var(--ink2); }
 </style>
@@ -119,7 +119,8 @@
   const md = src => {
     const out = []; let mode = '', fence = false, buf = [];
     const close = () => {
-      if (mode === 'ul') out.push('</ul>'); else if (mode === 'q') out.push('</blockquote>');
+      if (mode === 'ul' || mode === 'ol') out.push('</' + mode + '>');
+      else if (mode === 'q') out.push('</blockquote>');
       else if (mode === 'p') out.push('</p>');
       mode = '';
     };
@@ -133,15 +134,34 @@
       if (!line.trim()) { close(); continue; }
       let m;
       if ((m = /^(#{1,6})\s+(.*)$/.exec(line))) { close(); const n = Math.min(m[1].length + 2, 6); out.push(`<h${n}>${inline(m[2])}</h${n}>`); continue; }
-      if ((m = /^[-*]\s+(.*)$/.exec(line)) || (m = /^\d+\.\s+(.*)$/.exec(line))) {
-        if (mode !== 'ul') { close(); out.push('<ul>'); mode = 'ul'; }
-        out.push('<li>' + inline(m[1]) + '</li>'); continue;
+      const bullet = /^[-*]\s+(.*)$/.exec(line);
+      const number = bullet ? null : /^(\d+)\.\s+(.*)$/.exec(line);
+      if (bullet || number) {
+        // An STR is an ordered procedure. A `<ul>` renders step 5 as step 1, so a
+        // numbered list opens an `<ol>`, and a list that starts at n says so.
+        const want = bullet ? 'ul' : 'ol';
+        if (mode !== want) {
+          close();
+          const n = number ? parseInt(number[1], 10) : 1;
+          out.push(want === 'ol' && n !== 1 ? `<ol start="${n}">` : '<' + want + '>');
+          mode = want;
+        }
+        out.push('<li>' + inline(bullet ? bullet[1] : number[2]) + '</li>'); continue;
       }
       if ((m = /^&gt;\s?(.*)$/.exec(line))) {
         if (mode !== 'q') { close(); out.push('<blockquote>'); mode = 'q'; }
         out.push(inline(m[1]) + '<br>'); continue;
       }
-      if (mode === 'ul' || mode === 'q') { out.push(inline(line) + ' '); continue; }
+      if (mode === 'ul' || mode === 'ol') {
+        // A wrapped step belongs to its own `<li>`. Text between two `<li>` is not
+        // valid HTML, and the browser lifts it out of the list.
+        const wrap = inline(line.replace(/^\s+/, ''));
+        const last = out.length - 1;
+        if (out[last].endsWith('</li>')) out[last] = out[last].slice(0, -5) + ' ' + wrap + '</li>';
+        else out.push('<li>' + wrap + '</li>');
+        continue;
+      }
+      if (mode === 'q') { out.push(inline(line) + ' '); continue; }
       if (mode !== 'p') { close(); out.push('<p>'); mode = 'p'; }
       out.push(inline(line) + ' ');
     }

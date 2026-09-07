@@ -313,7 +313,7 @@ def task_dict(t, root):
         "priority_date": t.priority_date or None, "blocked_by": t.blocked_by,
         "needs_decision": t.decision or None, "refs": t.refs, "state": t.state,
         "sprint": t.sprint or None, "epic": t.epic or None, "path": rel(root, t.path),
-        "has_verdict": t.has_verdict(), "notes": t.notes(), "body": t.body,
+        "has_verdict": t.has_verdict(), "notes": t.notes(),
     }
 
 
@@ -569,10 +569,19 @@ def _append_section(path, header, line):
 NOTE_BY = ("agent", "user")
 
 
+def note_text(text):
+    """The words of a note, ready to write. Every writer of a note calls this one.
+
+    The text collapses to one line, so the parser stays simple. A double quote becomes
+    a single quote, because the line wraps the text in double quotes. `move --note`
+    once skipped this rule and wrote a line that a reader could not trust.
+    """
+    return " ".join(str(text or "").split()).replace('"', "'")
+
+
 def note_line(text, by="agent", date=None):
-    """One note line. The writer collapses the text to one line, so the parser stays simple."""
-    one = " ".join(str(text).split())
-    return '- %s \u00b7 by %s \u00b7 "%s"' % ((date or today()).isoformat(), by, one)
+    """One note line, from the words that `note_text` cleans."""
+    return '- %s \u00b7 by %s \u00b7 "%s"' % ((date or today()).isoformat(), by, note_text(text))
 
 
 def add_note(root, tree, task_id, text, by="agent"):
@@ -589,11 +598,9 @@ def add_note(root, tree, task_id, text, by="agent"):
         raise HarnessError("no task with id %s. Run `python3 -m harness list` to see the ids." % task_id)
     if by not in NOTE_BY:
         raise HarnessError("--by is %r. A note is written by agent or by user." % by)
-    one = " ".join(str(text or "").split())
+    one = note_text(text)
     if not one:
         raise HarnessError("the note is empty. Pass the words: `--text \"<words>\"`.")
-    if '"' in one:
-        one = one.replace('"', "'")
     _append_section(t.path, "## Notes", note_line(one, by=by))
     return {"id": t.id, "by": by, "date": today().isoformat(), "text": one,
             "path": rel(root, t.path), "notes": len(t.notes()) + 1}

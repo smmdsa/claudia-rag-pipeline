@@ -154,6 +154,27 @@ always meant: you talk to your agent, and the agent runs the harness.
 
 ### Fixed
 
+- **The modal printed an STR out of order.** The markdown renderer of the board page
+  read `1.` and opened a `<ul>`, so step 5 printed as a bullet and the reader lost the
+  order. 21 task files in this repository hold a numbered list, and an STR is an
+  ordered procedure. A numbered list now opens an `<ol>`, and a list that starts at 3
+  prints `<ol start="3">`. A wrapped line landed between two `<li>`, which is not valid
+  HTML, and the browser lifts that text out of the list. A wrapped line now joins its
+  own item. Copilot found both on pull request 11.
+
+- **Every list shipped the whole task file.** `board.task_dict` carried the markdown
+  body, and `list`, `next`, `board`, and the session brief all call it. Measured on
+  this repository with 19 tasks: `list --json` printed 58,749 bytes, and 10,607 bytes
+  without the body. Nothing read it there. The board page reads the body from its own
+  cache, and `show --json` adds it on its own line. The key is gone from `task_dict`.
+
+- **A note written by a move kept its double quotes.** `add_note` turns a double quote
+  into a single quote, because the note line wraps the text in double quotes.
+  `move --note` built its line directly and skipped that rule, so a note by the agent
+  could carry the string `· by user ·` inside its own quotes. The rule now lives in
+  `board.note_text`, and both writers call it. That is design law 2: a rule lives in
+  exactly one place.
+
 - **The Git guard denied an ordinary commit message.** PR 5 closed every bypass of the
   history guard, and its `ValueError` branch denies a command that it cannot read. The
   guard read the command one line at a time, so it cut every construct that crosses a
