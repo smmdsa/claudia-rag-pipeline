@@ -116,6 +116,7 @@ def _board(root):
             ["next", "the first task the agent can start now"],
             ["start <id>", "todo -> in-progress"],
             ["done <id>", "in-progress -> done. An eye task needs --verdict."],
+            ["note <id>", "append one line to `## Notes`. The record of the work."],
             ["check", "measure the SHAPE of the tree. Exit 1 on an error."],
             ["clock", "the days that remain in each sprint"]]},
         {"heading": "WHAT CHECK DOES NOT DO", "items": [

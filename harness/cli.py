@@ -70,12 +70,22 @@ def build_parser():
     sp.add_argument("--state", choices=board.STATES)
     sp.add_argument("--owner", choices=board.OWNER)
     add("show", "print one task file").add_argument("id")
-    add("start", "todo -> in-progress", json_=False).add_argument("id")
+    sp = add("start", "todo -> in-progress", json_=False)
+    sp.add_argument("id")
+    sp.add_argument("--note", help="the agent's words for the `## Notes` section")
     sp = add("done", "in-progress -> done. An eye task needs --verdict.", json_=False)
     sp.add_argument("id")
     sp.add_argument("--verdict", help="the user's words, verbatim")
     sp.add_argument("--by", default="user", help="who gave the verdict (default: user)")
-    add("back", "in-progress -> todo", json_=False).add_argument("id")
+    sp.add_argument("--note", help="the agent's words for the `## Notes` section")
+    sp = add("back", "in-progress -> todo", json_=False)
+    sp.add_argument("id")
+    sp.add_argument("--note", help="the agent's words for the `## Notes` section")
+    sp = add("note", "append one note to a task. The agent writes its own record of the work.")
+    sp.add_argument("id")
+    sp.add_argument("--text", required=True, help="the words, verbatim")
+    sp.add_argument("--by", default="agent", choices=list(board.NOTE_BY),
+                    help="who wrote the note (default: agent)")
     sp = add("priority", "set priority 1 on a task from the user's words, with the author and the date. --clear removes it.")
     sp.add_argument("id")
     sp.add_argument("--by", help="who named the task first. Never `agent`.")
@@ -261,10 +271,17 @@ def run(args):
     if c in ("start", "done", "back"):
         tree = _tree(root)
         to = {"start": "in-progress", "done": "done", "back": "todo"}[c]
-        r = board.move(root, tree, args.id, to, verdict=getattr(args, "verdict", None), by=getattr(args, "by", None))
+        r = board.move(root, tree, args.id, to, verdict=getattr(args, "verdict", None),
+                       by=getattr(args, "by", None), note=getattr(args, "note", None))
         print("%s: %s -> %s (%s)" % (r["id"], r["from"], r["to"], r["how"]))
+        print("  %d note(s) written to `## Notes`" % r["notes"])
         if r["note"]:
             print("  note: " + r["note"])
+        return 0
+    if c == "note":
+        tree = _tree(root)
+        r = board.add_note(root, tree, args.id, args.text, by=args.by)
+        emit(r, js, lambda d: "%s: note %d by %s on %s" % (d["id"], d["notes"], d["by"], d["date"]))
         return 0
     if c == "assign":
         tree = _tree(root)

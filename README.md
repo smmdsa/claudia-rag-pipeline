@@ -214,6 +214,22 @@ is never the truth. The server hashes every task path before it answers, and it
 rebuilds the cache when the tree changed. You move a task, you reload, and you read the
 new state. The page shows when the cache was built.
 
+Click a card and the whole task opens in a modal: the notes, the body, the verdict, and
+the state. Escape closes it, and so does a click outside. The card counts the notes, so
+you see which task carries a record before you open it.
+
+A note is the record of the work:
+
+```bash
+python3 -m harness note TASK-0007 --text "the CPU path took 60749 ms"
+python3 -m harness start TASK-0007 --note "the plan is in the file"
+```
+
+The agent writes a note on every `start` and on every `done`, and it does not wait to
+be asked. A note holds what the agent measured, tried, and discarded, so the next
+session does not repeat a dead end. A note can hold your verdict with `--by user`.
+`harness done --verdict` stays the only command that closes a task.
+
 ## Ports
 
 | port | variable | service |

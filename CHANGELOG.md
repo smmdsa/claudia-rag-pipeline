@@ -16,6 +16,39 @@ always meant: you talk to your agent, and the agent runs the harness.
 
 ### Added
 
+- **The board page opens a task in a modal, and every task carries the record of its
+  own work.** A card was a title and four chips. The user gave a verdict on a task with
+  `eye: GLANCE` or `eye: RUN`, and the page hid the evidence: the `Why`, the
+  `What to do`, and the `Done when` lived in the markdown file. A click on a card now
+  opens the whole task. Escape closes it, a click outside closes it, and the focus
+  returns to the card.
+
+  `python3 -m harness note <id> --text "..." [--by agent|user]` appends one line to the
+  `## Notes` section of the task file. The line carries the date and the author:
+  `- 2026-09-07 · by agent · "the words"`. `harness/board.py` `Task.notes()` reads that
+  section back, and a line that does not match the shape is not a note.
+
+  The agent writes a note on every `start` and on every `done`, and it does not wait to
+  be asked. The user decided this on 2026-09-07: a step that waits for a human is a
+  blocker, and the develop loop keeps the human in two places only, the QA test and the
+  ceremony. `start --note "..."` and `done --note "..."` add the agent's own words on a
+  second line. The move line records the move, which is measured. The words are the
+  agent's, and they stay on their own line.
+
+  A note can hold a verdict, and that verdict is the user's: the line then carries
+  `by user`. `harness done --verdict` stays the only writer of the `## Verdict`
+  section, so a note never closes a task.
+
+  The cache carries the body of each task and one row per note.
+  `harness/dashboard.py` gained a `notes` table and a `body` column. The page renders
+  the markdown itself, in about 30 lines, so the board page still ships one file with
+  no third-party package. The card shows the note count.
+
+  Measured in Chrome on 2026-09-07: the card opens the modal, Escape closes it and
+  returns the focus to the card, Enter on the focused card opens it again, and the
+  renderer prints the headings, the lists, the blockquotes, the fenced code, and the
+  inline code of a real task file.
+
 - **`python3 -m harness gpu` answers whether this host can run the index on a GPU.**
   The answer is `yes`, `no`, or `unknown`, and it names the reason. `harness/gpu.py`
   measures four things in order and stops at the first `no`: the platform,

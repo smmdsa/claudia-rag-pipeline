@@ -117,3 +117,75 @@ class DashboardTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ModalTest(unittest.TestCase):
+    """The card opens the whole task: the body and the notes reach the page.
+
+    Mutation proof (docs/MUTATION.md): M91 (the cache drops the body) 1 red,
+    M92 (the notes rows lose their order) 1 red, M93 (the card carries no id) 2 red.
+    """
+
+    def setUp(self):
+        os.environ["HARNESS_TODAY"] = "2026-09-05"
+        self.root = make_repo()
+        self.ids = seed_board(self.root)
+        board.move(self.root, board.scan(self.root), self.ids["t2"], "in-progress",
+                   note="the deep run answered in 3.3 s")
+
+    def tearDown(self):
+        os.environ.pop("HARNESS_TODAY", None)
+        rm(self.root)
+
+    def test_the_cache_carries_the_body_of_every_task(self):
+        dashboard.build_db(self.root)
+        con = sqlite3.connect(dashboard.db_path(self.root))
+        body = dict(con.execute("SELECT id, body FROM tasks"))[self.ids["t2"]]
+        con.close()
+        self.assertIn("## Done when", body)
+        self.assertIn("## Not covered", body)
+
+    def test_the_cache_carries_the_notes_in_order(self):
+        dashboard.build_db(self.root)
+        data = dashboard.read_db(dashboard.db_path(self.root))
+        mine = [n for n in data["notes"] if n["task"] == self.ids["t2"]]
+        self.assertEqual([n["ord"] for n in mine], [0, 1])
+        self.assertEqual([n["text"] for n in mine],
+                         ["todo -> in-progress", "the deep run answered in 3.3 s"])
+        self.assertEqual({n["author"] for n in mine}, {"agent"})
+        self.assertEqual({n["date"] for n in mine}, {"2026-09-05"})
+
+    def test_a_task_with_no_note_carries_no_row(self):
+        dashboard.build_db(self.root)
+        data = dashboard.read_db(dashboard.db_path(self.root))
+        self.assertEqual([n for n in data["notes"] if n["task"] == self.ids["t1"]], [])
+
+    def test_the_page_holds_the_modal_and_the_clickable_card(self):
+        out = os.path.join(self.root, "board.html")
+        dashboard.static(self.root, out)
+        text = read_text(out)
+        self.assertIn('id="modal"', text)
+        self.assertIn('aria-modal="true"', text)
+        self.assertIn('id="modal-close"', text)
+        self.assertIn('data-id="${esc(t.id)}"', text)      # every card names its task
+        self.assertIn("openTask", text)
+        self.assertIn("'Escape'", text)                     # the modal closes with Escape
+        self.assertIn(".modal[hidden]", text)               # hidden wins over display:flex
+        self.assertIn("note${", text)                       # the card counts the notes
+        self.assertIn("opener.focus()", text)               # Escape returns the focus to the card
+        self.assertIn("openTask(c.dataset.id, c)", text)
+
+    def test_the_page_carries_the_note_text_and_the_body(self):
+        out = os.path.join(self.root, "board.html")
+        dashboard.static(self.root, out)
+        text = read_text(out)
+        self.assertIn("the deep run answered in 3.3 s", text)
+        self.assertIn("Not covered", text)
+
+    def test_the_page_ships_one_file_with_no_third_party_package(self):
+        out = os.path.join(self.root, "board.html")
+        dashboard.static(self.root, out)
+        text = read_text(out)
+        self.assertNotIn("<script src", text)
+        self.assertNotIn("http://", text.replace("http://127.0.0.1", ""))
+        self.assertNotIn("cdn", text.lower())

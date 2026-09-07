@@ -98,6 +98,15 @@ not whether one does. Baseline: 106 tests, 0 red. After the last restore: 106 te
 | M84 | `harness/gpu.py` | the note ignores the image that the stack runs | 1 — `NoteTest.test_the_note_names_the_command_when_the_stack_runs_the_cpu_image` |
 | M85 | `harness/stack.py` | the `ps` row drops the image tag of the container | 1 — `NoteTest.test_the_note_names_the_command_when_the_stack_runs_the_cpu_image` |
 | M86 | `harness/cli.py` | `init` never runs the GPU check | 1 — `GpuCliTest.test_init_prints_the_line_and_no_gpu_skips_it` |
+| M87 | `harness/board.py` | `add_note` writes into the `## Verdict` section | 6 — `NotesTest.test_a_note_lands_under_the_notes_header_with_the_date_and_the_author`, `NotesTest.test_two_notes_keep_their_order`, `NotesTest.test_a_note_can_carry_the_users_verdict_words`, `NotesTest.test_a_quote_in_the_text_never_breaks_the_line`, `NotesTest.test_a_line_that_is_not_a_note_is_skipped`, `NotesTest.test_the_cli_writes_a_note_and_check_stays_green` |
+| M88 | `harness/board.py` | `move` writes no note, so a start and a done leave no record | 6 — `NotesTest.test_start_writes_the_move_note_without_a_request`, `NotesTest.test_the_agent_words_ride_on_their_own_line`, `NotesTest.test_every_move_writes_its_own_note`, `NotesTest.test_a_note_never_lands_inside_the_verdict_section`, `NotesTest.test_the_cli_start_reports_the_note_it_wrote`, `ModalTest.test_the_cache_carries_the_notes_in_order` |
+| M89 | `harness/board.py` | `notes()` reads every line of the section, so a paragraph becomes a note with no date | 13 — every `NotesTest` that reads a note, plus `ModalTest.test_the_cache_carries_the_notes_in_order` and `ModalTest.test_a_task_with_no_note_carries_no_row` |
+| M90 | `harness/board.py` | `add_note` takes any author, so a third name enters the record | 1 — `NotesTest.test_a_note_by_anyone_else_is_refused` |
+| M91 | `harness/dashboard.py` | the cache stores no body, so the modal shows an empty task | 2 — `ModalTest.test_the_cache_carries_the_body_of_every_task`, `ModalTest.test_the_page_carries_the_note_text_and_the_body` |
+| M92 | `harness/dashboard.py` | `read_db` returns the notes newest first, so the record reads backwards | 1 — `ModalTest.test_the_cache_carries_the_notes_in_order` |
+| M93 | `harness/dashboard.html` | the card carries no `data-id`, so a click opens nothing | 1 — `ModalTest.test_the_page_holds_the_modal_and_the_clickable_card` |
+| M94 | `harness/board.py` | `notes()` reads the whole body and not the `## Notes` section | 11 — every `NotesTest` that reads a note, plus `ModalTest.test_the_cache_carries_the_notes_in_order` |
+| M95 | `harness/board.py` | `add_note` accepts an empty text, so a blank line enters the record | 1 — `NotesTest.test_an_empty_note_is_refused` |
 
 M38 and M39 ran on 2026-09-05, after `./infra/rag/up.sh` refused to run on a stack that
 was already up. Baseline 151 tests, 0 red. After the restore: 151 tests, 0 red.

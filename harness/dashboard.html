@@ -19,7 +19,8 @@
   .cols { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:.75rem; }
   .col { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:.5rem; min-height:4rem; }
   .col h4 { margin:0 0 .4rem; font-size:.8rem; text-transform:uppercase; letter-spacing:.04em; color:var(--ink2); }
-  .card { border:1px solid var(--line); border-left:4px solid var(--todo); border-radius:6px; padding:.4rem .6rem; margin:.35rem 0; background:var(--bg); }
+  .card { border:1px solid var(--line); border-left:4px solid var(--todo); border-radius:6px; padding:.4rem .6rem; margin:.35rem 0; background:var(--bg); cursor:pointer; }
+  .card:hover { border-color:var(--ink2); } .card:focus-visible { outline:2px solid var(--eye); outline-offset:1px; }
   .card.in-progress { border-left-color:var(--prog); } .card.done { border-left-color:var(--done); }
   .card .id { font-family: ui-monospace, monospace; font-size:.8rem; color:var(--ink2); }
   .chip { display:inline-block; font-size:.72rem; padding:0 .4rem; border-radius:999px; border:1px solid var(--line); margin-right:.25rem; }
@@ -29,6 +30,23 @@
   .over { color:var(--warn); font-weight:600; }
   .epic { margin:.75rem 0 0; font-weight:600; }
   @media (max-width: 720px) { .cols { grid-template-columns: 1fr; } }
+  /* The modal. `hidden` must win over `display:flex`, so the attribute rule comes second. */
+  .modal { position:fixed; inset:0; z-index:10; overflow:auto; padding:2rem 1rem;
+           background:rgba(0,0,0,.45); display:flex; align-items:flex-start; justify-content:center; }
+  .modal[hidden] { display:none; }
+  .sheet { position:relative; width:100%; max-width:52rem; padding:1.2rem 1.6rem 1.6rem;
+           background:var(--card); border:1px solid var(--line); border-radius:10px; }
+  .sheet .x { position:absolute; top:.4rem; right:.6rem; padding:.2rem .4rem; line-height:1;
+              font-size:1.4rem; color:var(--ink2); background:none; border:0; cursor:pointer; }
+  .sheet h2 { margin:0 0 .2rem; } .sheet h3 { margin:1.1rem 0 .3rem; font-size:1rem; }
+  .sheet h4 { margin:.8rem 0 .3rem; font-size:.9rem; } .sheet p { margin:.4rem 0; }
+  .sheet pre { padding:.5rem .7rem; overflow-x:auto; font-size:.82rem; background:var(--bg);
+               border:1px solid var(--line); border-radius:6px; }
+  .sheet code { padding:0 .2rem; font-family:ui-monospace, monospace; font-size:.86em; background:var(--bg); border-radius:3px; }
+  .sheet blockquote { margin:.5rem 0; padding:.1rem .8rem; border-left:3px solid var(--line); color:var(--ink2); }
+  .sheet ul { margin:.3rem 0; padding-left:1.2rem; }
+  .notes li { margin:.35rem 0; }
+  .notes .when { font-family:ui-monospace, monospace; font-size:.78rem; color:var(--ink2); }
 </style>
 </head>
 <body>
@@ -40,12 +58,19 @@
 <div id="sprints"></div>
 <h2>Backlog</h2>
 <div id="backlog"></div>
+<div class="modal" id="modal" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <button class="x" id="modal-close" aria-label="close">&times;</button>
+    <div id="modal-body"></div>
+  </div>
+</div>
 <script id="data" type="application/json">__BOARD_JSON__</script>
 <script>
 (function () {
   const D = JSON.parse(document.getElementById('data').textContent);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const tasks = D.tasks, byState = s => tasks.filter(t => t.state === s);
+  const notesOf = id => (D.notes || []).filter(n => n.task === id);
   const queue = tasks.filter(t => t.state === 'in-progress' && t.eye !== 'NONE');
   const overdue = D.sprints.filter(s => s.status === 'ended' && tasks.some(t => t.sprint === s.id && t.state !== 'done'));
   document.getElementById('meta').textContent =
@@ -63,8 +88,10 @@
     (t.due ? `<span class="chip warn">due ${esc(t.due)}</span>` : '') +
     (t.priority === 1 ? '<span class="chip">priority 1</span>' : '') +
     (t.needs_decision ? `<span class="chip warn">waits ${esc(t.needs_decision)}</span>` : '') +
-    (t.state === 'done' && t.eye !== 'NONE' && !t.has_verdict ? '<span class="chip warn">NO VERDICT</span>' : '');
-  const card = t => `<div class="card ${t.state}"><span class="id">${esc(t.id)}</span> ${esc(t.title)}<br>${chips(t)}</div>`;
+    (t.state === 'done' && t.eye !== 'NONE' && !t.has_verdict ? '<span class="chip warn">NO VERDICT</span>' : '') +
+    (notesOf(t.id).length ? `<span class="chip">${notesOf(t.id).length} note${notesOf(t.id).length === 1 ? '' : 's'}</span>` : '');
+  const card = t => `<div class="card ${t.state}" data-id="${esc(t.id)}" tabindex="0" role="button">` +
+    `<span class="id">${esc(t.id)}</span> ${esc(t.title)}<br>${chips(t)}</div>`;
   const age = t => t.state_age_days == null ? 'not measured (move not committed)' : t.state_age_days + ' d';
   document.getElementById('queue').innerHTML = queue.length
     ? '<table><tr><th>id</th><th>title</th><th>eye</th><th>waiting</th><th>epic</th></tr>' +
@@ -85,6 +112,86 @@
   }).join('') || '<p class="meta">no sprint</p>';
   const bl = tasks.filter(t => !t.sprint);
   document.getElementById('backlog').innerHTML = bl.length ? bl.map(card).join('') : '<p class="meta">empty</p>';
+
+  // ---- the modal. The page ships one file and no third-party package, so the
+  // markdown renderer lives here. It escapes first, then it marks up the escaped text.
+  const inline = s => s.replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  const md = src => {
+    const out = []; let mode = '', fence = false, buf = [];
+    const close = () => {
+      if (mode === 'ul') out.push('</ul>'); else if (mode === 'q') out.push('</blockquote>');
+      else if (mode === 'p') out.push('</p>');
+      mode = '';
+    };
+    for (const raw of esc(src).split('\n')) {
+      const line = raw.replace(/\s+$/, '');
+      if (/^```/.test(line)) {
+        if (fence) { out.push('<pre>' + buf.join('\n') + '</pre>'); buf = []; fence = false; } else { close(); fence = true; }
+        continue;
+      }
+      if (fence) { buf.push(line); continue; }
+      if (!line.trim()) { close(); continue; }
+      let m;
+      if ((m = /^(#{1,6})\s+(.*)$/.exec(line))) { close(); const n = Math.min(m[1].length + 2, 6); out.push(`<h${n}>${inline(m[2])}</h${n}>`); continue; }
+      if ((m = /^[-*]\s+(.*)$/.exec(line)) || (m = /^\d+\.\s+(.*)$/.exec(line))) {
+        if (mode !== 'ul') { close(); out.push('<ul>'); mode = 'ul'; }
+        out.push('<li>' + inline(m[1]) + '</li>'); continue;
+      }
+      if ((m = /^&gt;\s?(.*)$/.exec(line))) {
+        if (mode !== 'q') { close(); out.push('<blockquote>'); mode = 'q'; }
+        out.push(inline(m[1]) + '<br>'); continue;
+      }
+      if (mode === 'ul' || mode === 'q') { out.push(inline(line) + ' '); continue; }
+      if (mode !== 'p') { close(); out.push('<p>'); mode = 'p'; }
+      out.push(inline(line) + ' ');
+    }
+    if (fence && buf.length) out.push('<pre>' + buf.join('\n') + '</pre>');
+    close();
+    return out.join('\n');
+  };
+  // The modal prints the notes above the file, so the file drops its own H1 and its
+  // `## Notes` section. Nobody reads the same lines twice.
+  const trim = b => String(b == null ? '' : b)
+    .replace(/^\s*#\s+[^\n]*\n/, '')
+    .replace(/\n## Notes[^\n]*\n[\s\S]*?(?=\n## |$)/, '');
+  const modal = document.getElementById('modal');
+  // The card that opened the modal takes the focus back on close. Without this the
+  // keyboard user lands on the body, and the next Enter reaches nothing.
+  let opener = null;
+  const openTask = (id, from) => {
+    const t = tasks.find(x => x.id === id);
+    if (!t) return;
+    opener = from || null;
+    const ns = notesOf(id);
+    document.getElementById('modal-body').innerHTML =
+      `<h2 id="modal-title"><span class="id">${esc(t.id)}</span> ${esc(t.title)}</h2>` +
+      `<p class="meta">${esc(t.state)} · ${esc(t.sprint || 'backlog')}${t.epic ? ' · ' + esc(t.epic) : ''} · ` +
+      `<code>${esc(t.path)}</code> · the file is the truth; this modal is a copy.</p>` +
+      `<p>${chips(t)}</p>` +
+      `<h3>Notes (${ns.length})</h3>` +
+      (ns.length
+        ? '<ul class="notes">' + ns.map(n =>
+            `<li><span class="when">${esc(n.date)} · ${esc(n.author)}</span> ${esc(n.text)}</li>`).join('') + '</ul>'
+        : '<p class="meta">no note yet. The agent writes one on every start and on every done.</p>') +
+      `<h3>The task file</h3>` + md(trim(t.body));
+    modal.hidden = false;
+    document.getElementById('modal-close').focus();
+  };
+  const closeModal = () => {
+    modal.hidden = true;
+    if (opener) { opener.focus(); opener = null; }
+  };
+  document.addEventListener('click', ev => {
+    if (ev.target.closest && ev.target.closest('.sheet') && ev.target.id !== 'modal-close') return;
+    if (ev.target === modal || ev.target.id === 'modal-close') { closeModal(); return; }
+    const c = ev.target.closest && ev.target.closest('.card');
+    if (c && c.dataset.id) openTask(c.dataset.id, c);
+  });
+  document.addEventListener('keydown', ev => {
+    if (ev.key === 'Escape' && !modal.hidden) { closeModal(); return; }
+    const c = ev.target.closest && ev.target.closest('.card');
+    if (c && c.dataset.id && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); openTask(c.dataset.id, c); }
+  });
 })();
 </script>
 </body>

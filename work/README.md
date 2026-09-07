@@ -119,6 +119,11 @@ order the tool knew.
 8. **A sprint declares `starts` and `ends`.** The clock computes the days that remain.
    A sprint that passes its end with open tasks is overdue. No command moves a date.
 9. **All content is English, in ASD-STE100 Simplified Technical English.**
+10. **A task carries the record of its own work.** The `## Notes` section holds one
+    line per note, with the date and the author. The agent writes a note on every
+    `start` and on every `done`. A note holds what the agent measured, tried, and
+    discarded. A note can hold the user's verdict with `--by user`, and a note never
+    closes a task.
 
 ## The state machine
 
@@ -134,6 +139,9 @@ python3 -m harness done  TASK-0004                              # eye NONE
 python3 -m harness done  TASK-0004 --verdict "it works" --by user  # eye GLANCE or RUN
 python3 -m harness back  TASK-0004
 python3 -m harness priority TASK-0004 --by user --why "the words"   # or --clear
+python3 -m harness note  TASK-0004 --text "the words"              # by agent
+python3 -m harness note  TASK-0004 --text "the words" --by user
+python3 -m harness start TASK-0004 --note "the words"              # start and note, one call
 ```
 
 A task is READY when it sits in `todo`, every task in its `blocked-by` list is done,
